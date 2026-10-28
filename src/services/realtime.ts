@@ -528,11 +528,46 @@ class RealtimeManager {
    */
   public async resetTable(tableNumber: string, restaurantId?: string) {
     const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
+    const cleanTbl = tableNumber.trim().toLowerCase();
+
+    // 1. Delete all table orders and waiter calls in Firestore directly
+    try {
+      if (db) {
+        const deleteOps: Promise<void>[] = [];
+
+        // Fetch and delete matching table orders in Firestore
+        const ordersCol = collection(db, 'restaurants', restId, 'tableOrders');
+        const ordersSnap = await getDocs(ordersCol);
+        ordersSnap.forEach((d) => {
+          const ordData = d.data();
+          if (ordData?.tableNumber && ordData.tableNumber.trim().toLowerCase() === cleanTbl) {
+            deleteOps.push(deleteDoc(doc(db, 'restaurants', restId, 'tableOrders', d.id)).catch(() => {}));
+          }
+        });
+
+        // Fetch and delete matching waiter calls in Firestore
+        const callsCol = collection(db, 'restaurants', restId, 'waiterCalls');
+        const callsSnap = await getDocs(callsCol);
+        callsSnap.forEach((d) => {
+          const callData = d.data();
+          if (callData?.tableNumber && callData.tableNumber.trim().toLowerCase() === cleanTbl) {
+            deleteOps.push(deleteDoc(doc(db, 'restaurants', restId, 'waiterCalls', d.id)).catch(() => {}));
+          }
+        });
+
+        await Promise.all(deleteOps);
+      }
+    } catch (e) {
+      console.warn('Could not reset table in Firestore:', e);
+    }
+
+    // 2. Clear from local storage
     resetTableOrdersForTable(tableNumber, restId);
 
     const updatedOrders = getStoredTableOrders(restId);
     const updatedCalls = getStoredWaiterCalls(restId);
 
+    // 3. Broadcast to all open tabs and mobile devices
     try {
       this.channel?.postMessage({ type: 'RESET_TABLE', restaurantId: restId, tableNumber });
     } catch {}
@@ -540,21 +575,6 @@ class RealtimeManager {
     this.notifyOrdersListeners(updatedOrders, undefined, restId);
     this.notifyCallsListeners(updatedCalls, undefined, restId);
     this.notifyResetListeners(tableNumber, restId);
-
-    // Also clear from Firestore for that table
-    try {
-      if (db) {
-        const existingOrders = getStoredTableOrders(restId);
-        for (const order of existingOrders) {
-          if (order.tableNumber.toLowerCase() === tableNumber.toLowerCase()) {
-            const docRef = doc(db, 'restaurants', restId, 'tableOrders', order.id);
-            await deleteDoc(docRef).catch(() => {});
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Could not reset table in Firestore:', e);
-    }
   }
 
   /**

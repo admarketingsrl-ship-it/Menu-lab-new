@@ -9,7 +9,7 @@ interface LandingHomeProps {
 
 export const LandingHome: React.FC<LandingHomeProps> = ({ onNavigate, restaurant }) => {
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-20">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-20 overflow-x-hidden">
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pt-16 pb-24 border-b border-zinc-200 dark:border-zinc-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">

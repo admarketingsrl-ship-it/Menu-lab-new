@@ -50,8 +50,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
   // Check if session has active admin token for this restaurant
   const isAutoAuthed = typeof window !== 'undefined' && sessionStorage.getItem('menulab_admin_authed_rest') === initialRest.id;
   const [isLoggedIn, setIsLoggedIn] = useState(isAutoAuthed);
-  const [email, setEmail] = useState(initialRest.adminEmail || 'admin@bellanapoli.it');
-  const [password, setPassword] = useState(initialRest.adminPassword || 'admin123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
   // Google Drive & Firebase Auth user state
@@ -169,14 +169,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
   }, [restaurant?.id]);
 
   const handleResetTable = (tableNumber: string) => {
-    if (confirm(`Vuoi chiudere il conto e resettare il ${tableNumber}? Questo azzererà gli ordini e le chiamate attive per questo tavolo.`)) {
+    if (confirm(`Vuoi chiudere il conto e resettare il ${tableNumber}? Questo azzererà tutti gli ordini e le chiamate attive per questo tavolo.`)) {
       realtimeManager.resetTable(tableNumber, restaurant.id);
+      setTableOrders((prev) => prev.filter((o) => o.tableNumber.toLowerCase() !== tableNumber.toLowerCase()));
+      setWaiterCalls((prev) => prev.filter((c) => c.tableNumber.toLowerCase() !== tableNumber.toLowerCase()));
       if (activeOrderAlert?.tableNumber === tableNumber) {
         setActiveOrderAlert(null);
       }
       if (activeCallAlert?.tableNumber === tableNumber) {
         setActiveCallAlert(null);
       }
+      setCopyToast(`Conto chiuso e ${tableNumber} resettato con successo!`);
+      setTimeout(() => setCopyToast(null), 3000);
     }
   };
 
@@ -435,136 +439,71 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
   };
 
   if (!isLoggedIn) {
-    const isExpiredNotice = (restaurant.subscription?.status === 'Scaduto') || 
-      (restaurant.subscription?.endDate && new Date(restaurant.subscription.endDate) < new Date());
-
     return (
       <div className="min-h-[85vh] flex items-center justify-center p-4 bg-zinc-50 dark:bg-zinc-950">
-        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-8 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30 overflow-hidden">
-              {restaurant.logo ? (
-                <img src={restaurant.logo} alt={restaurant.name} className="w-full h-full object-cover" />
-              ) : (
-                <ShieldCheck className="w-8 h-8" />
-              )}
+        <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-white flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
+              <ShieldCheck className="w-8 h-8 text-white" />
             </div>
-            <h2 className="text-2xl font-black text-zinc-900 dark:text-white">{restaurant.name}</h2>
-            <div className="flex items-center justify-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-semibold">
-                ID: {restaurant.id}
-              </span>
-              {restaurant.subscription && (
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                  !isExpiredNotice
-                    ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
-                    : 'bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400'
-                }`}>
-                  {restaurant.subscription.planName} • {!isExpiredNotice ? `Scade il ${restaurant.subscription.endDate}` : 'SCADUTO'}
-                </span>
-              )}
+            <div>
+              <h2 className="text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
+                MenuLab Gestione
+              </h2>
+              <p className="text-xs text-zinc-500 mt-1">
+                Inserisci le credenziali del tuo locale per accedere al pannello
+              </p>
             </div>
           </div>
 
-          {isExpiredNotice && (
-            <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-2xl text-red-700 dark:text-red-400 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 font-bold">
-                <ShieldAlert className="w-4 h-4 text-red-500 flex-shrink-0" />
-                <span>Abbonamento Mensile Scaduto</span>
-              </div>
-              <p className="text-[11px] leading-relaxed">
-                L'accesso per <strong>{restaurant.name}</strong> è scaduto il {restaurant.subscription?.endDate}. Contatta l'agenzia per rinnovare il piano oppure seleziona un altro locale.
-              </p>
-            </div>
-          )}
-
           {loginError && (
-            <div className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs text-center font-medium">
+            <div className="p-3.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/50 rounded-2xl text-red-600 dark:text-red-400 text-xs text-center font-bold">
               {loginError}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Email Gestione Ristorante</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                Email Locale
+              </label>
               <input
                 type="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="es. admin@tuoristorante.it"
-                className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                className="w-full px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Password</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                Password
+              </label>
               <input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
+                placeholder="••••••••"
+                className="w-full px-4 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-sm shadow-lg shadow-amber-500/25 transition-all cursor-pointer flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-sm shadow-xl shadow-amber-500/25 transition-all cursor-pointer flex items-center justify-center gap-2"
             >
               <ShieldCheck className="w-4 h-4" />
-              <span>Accedi al Portale Locale</span>
+              <span>Accedi al Portale</span>
             </button>
           </form>
 
-          {/* Quick Select among registered client restaurants */}
-          <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                Locali Registrati ({allRestaurants.length}):
-              </p>
-              <span className="text-[10px] text-zinc-400">Clicca per compilare credenziali</span>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-              {allRestaurants.map((r) => {
-                const isSelected = restaurant.id === r.id;
-                const isItemExpired = (r.subscription?.status === 'Scaduto') || 
-                  (r.subscription?.endDate && new Date(r.subscription.endDate) < new Date());
-
-                return (
-                  <button
-                    key={r.id}
-                    type="button"
-                    onClick={() => {
-                      setRestaurant(r);
-                      setDishes(getStoredDishes(r.id));
-                      setCategories(getStoredCategories(r.id));
-                      setWaiterCalls(getStoredWaiterCalls(r.id));
-                      setEmail(r.adminEmail || `admin@${r.id}.it`);
-                      setPassword(r.adminPassword || 'password123');
-                      setLoginError('');
-                    }}
-                    className={`p-2.5 rounded-xl text-left border text-xs transition-all flex items-center gap-2 cursor-pointer ${
-                      isSelected
-                        ? 'bg-amber-500/10 border-amber-500 text-amber-600 dark:text-amber-400 font-bold shadow-sm'
-                        : 'bg-zinc-50 dark:bg-zinc-800/50 border-zinc-200 dark:border-zinc-700/60 text-zinc-700 dark:text-zinc-300 hover:border-zinc-400'
-                    }`}
-                  >
-                    <img src={r.logo} alt="" className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-bold truncate text-[11px]">{r.name}</p>
-                      <div className="flex items-center gap-1.5 text-[9px] text-zinc-400 font-mono">
-                        <span className="truncate">{r.adminEmail || 'admin@locale.it'}</span>
-                        {isItemExpired && (
-                          <span className="text-red-500 font-bold font-sans">Scaduto</span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
+          <div className="pt-2 text-center">
+            <p className="text-[11px] text-zinc-400">
+              Accesso riservato e protetto. I dati del tuo locale sono isolati e confidenziali.
+            </p>
           </div>
         </div>
       </div>
@@ -614,24 +553,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
-            {/* Quick Restaurant Switcher Dropdown */}
-            <div className="flex items-center gap-1.5 bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
-              <span className="text-[10px] text-zinc-400 font-bold uppercase hidden xl:inline">Locale:</span>
-              <select
-                value={restaurant.id}
-                onChange={(e) => handleSwitchRestaurant(e.target.value)}
-                className="bg-transparent text-xs font-bold text-zinc-800 dark:text-zinc-200 focus:outline-none cursor-pointer"
-                title="Passa alla dashboard di un altro cliente"
-              >
-                {allRestaurants.map((r) => (
-                  <option key={r.id} value={r.id} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                    {r.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* Copy Direct Dashboard Link */}
             <button
               onClick={() => {
@@ -641,7 +563,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                   setTimeout(() => setCopyToast(null), 3000);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold transition-colors cursor-pointer"
               title="Copia link per accedere direttamente a questo gestionale"
             >
               <Copy className="w-3.5 h-3.5 text-amber-500" />
@@ -653,7 +575,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
               href={clientMenuUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
               title="Apri il menu digitale pubblico come lo vedono i clienti"
             >
               <ExternalLink className="w-3.5 h-3.5" />
@@ -668,7 +590,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                 soundService.setMuted(next);
                 setIsSoundMuted(next);
               }}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all ${
                 isSoundMuted 
                   ? 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 hover:bg-zinc-200' 
                   : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'
@@ -676,16 +598,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
               title={isSoundMuted ? 'Attiva Suono Notifiche' : 'Silenzia Suono Notifiche'}
             >
               {isSoundMuted ? <VolumeX className="w-3.5 h-3.5 text-zinc-400" /> : <Volume2 className="w-3.5 h-3.5 text-emerald-500 animate-pulse" />}
-              <span className="hidden md:inline">{isSoundMuted ? 'Audio Muto' : 'Audio Live'}</span>
+              <span className="hidden md:inline">{isSoundMuted ? 'Muto' : 'Audio Live'}</span>
             </button>
 
             <button
               onClick={() => setIsExcelModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm transition-colors cursor-pointer"
               title="Importa o esporta menu da file Excel"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span className="hidden lg:inline">Importa Excel</span>
+              <span className="hidden lg:inline">Excel</span>
             </button>
 
             <button
@@ -693,7 +615,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                 sessionStorage.removeItem('menulab_admin_authed_rest');
                 setIsLoggedIn(false);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 text-xs font-bold transition-colors cursor-pointer"
               title="Disconnetti dalla sessione gestionale"
             >
               <LogOut className="w-3.5 h-3.5" />
