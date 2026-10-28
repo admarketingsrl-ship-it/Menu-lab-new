@@ -191,7 +191,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
       currency: '€',
       googleReviewUrl: '',
       tripAdvisorUrl: '',
-      tables: ['Tavolo 1', 'Tavolo 2', 'Tavolo 3', 'Tavolo 4'],
+      tables: ['Tavolo 1'],
       subscription: {
         planName,
         monthlyFee,
@@ -213,13 +213,14 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     setRestaurants(updated);
     saveStoredRestaurantsList(updated);
 
-    // Initialize dedicated starter dishes and categories for this new client
-    const starterDishes = createStarterDishesForRestaurant(name, id);
-    saveStoredDishes(starterDishes, id);
-    saveStoredCategories(DEFAULT_STARTER_CATEGORIES, id);
+    // Initialize empty dishes menu and clean initial categories for this new client
+    saveStoredDishes([], id);
+    saveStoredCategories(['Antipasti', 'Primi', 'Secondi', 'Pizze', 'Dessert', 'Bevande'], id);
+    realtimeManager.broadcastRestaurant(newRest);
+    realtimeManager.broadcastDishes([], id);
 
     setIsCreateModalOpen(false);
-    showToast(`Nuovo ristorante "${name}" creato con successo e menu univoco inizializzato!`);
+    showToast(`Nuovo ristorante "${name}" creato con successo! Il suo menu è pronto e vuoto.`);
   };
 
   // Edit client modal submit

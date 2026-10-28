@@ -374,6 +374,33 @@ class RealtimeManager {
     };
   }
 
+  private activeFirestoreRestaurantListeners = new Map<string, () => void>();
+
+  /**
+   * Ensure a dynamic Firestore live listener is active for a specific restaurant's profile
+   */
+  public ensureFirestoreRestaurantListener(restaurantId: string) {
+    if (!db || !restaurantId || this.activeFirestoreRestaurantListeners.has(restaurantId.toLowerCase())) return;
+
+    const restIdLower = restaurantId.toLowerCase();
+    try {
+      const restDocRef = doc(db, 'restaurants', restIdLower, 'info', 'profile');
+      const unsub = onSnapshot(restDocRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const remoteRest = snapshot.data() as RestaurantInfo;
+          saveStoredRestaurant(remoteRest);
+          this.notifyRestaurantListeners(remoteRest, restIdLower);
+        }
+      }, (err) => {
+        console.warn(`Firestore restaurant listener error for ${restIdLower}:`, err.message);
+      });
+
+      this.activeFirestoreRestaurantListeners.set(restIdLower, unsub);
+    } catch (e) {
+      console.warn(`Error setting up Firestore restaurant listener for ${restIdLower}:`, e);
+    }
+  }
+
   /**
    * Subscribe to restaurant settings & active banners.
    */
@@ -387,6 +414,11 @@ class RealtimeManager {
       fn: listener,
     };
     this.restaurantListeners.add(item);
+
+    if (targetRestId) {
+      this.ensureFirestoreRestaurantListener(targetRestId);
+    }
+
     listener(getStoredRestaurant(targetRestId));
     return () => {
       this.restaurantListeners.delete(item);
@@ -654,13 +686,22 @@ class RealtimeManager {
   /**
    * Broadcast restaurant details (e.g. promo banners, table ordering toggle)
    */
-  public broadcastRestaurant(restaurant: RestaurantInfo) {
+  public async broadcastRestaurant(restaurant: RestaurantInfo) {
     const restId = restaurant.id.toLowerCase();
     saveStoredRestaurant(restaurant);
     try {
       this.channel?.postMessage({ type: 'RESTAURANT_UPDATED', restaurantId: restId, restaurant });
     } catch {}
     this.notifyRestaurantListeners(restaurant, restId);
+
+    try {
+      if (db) {
+        const restDocRef = doc(db, 'restaurants', restId, 'info', 'profile');
+        await setDoc(restDocRef, restaurant);
+      }
+    } catch (e) {
+      console.warn('Could not sync restaurant profile to Firestore:', e);
+    }
   }
 }
 

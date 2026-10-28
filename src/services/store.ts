@@ -154,6 +154,42 @@ export const getStoredRestaurant = (restaurantId?: string): RestaurantInfo => {
     if (currentId) {
       const found = list.find(r => r.id.toLowerCase() === currentId.toLowerCase());
       if (found) return found;
+
+      // Dynamic fallback for newly scanned or newly created restaurant IDs
+      const rawPart = currentId.split('_')[0];
+      const formattedName = rawPart
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
+
+      const dynamicFallback: RestaurantInfo = {
+        id: currentId.toLowerCase(),
+        name: formattedName || 'Ristorante',
+        tagline: 'Menu Digitale Ristorante',
+        logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+        coverImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
+        address: 'Indirizzo Ristorante',
+        phone: '',
+        email: `admin@${currentId.toLowerCase()}.it`,
+        adminEmail: `admin@${currentId.toLowerCase()}.it`,
+        adminPassword: 'pass123',
+        isOpen: true,
+        openingHours: '12:00 - 23:00',
+        currency: '€',
+        googleReviewUrl: '',
+        tripAdvisorUrl: '',
+        tables: ['Tavolo 1'],
+        subscription: {
+          planName: 'Abbonamento Mensile Pro',
+          monthlyFee: 49,
+          endDate: '2027-12-31',
+          status: 'Attivo',
+        }
+      };
+
+      const updatedList = [...list, dynamicFallback];
+      saveStoredRestaurantsList(updatedList);
+      return dynamicFallback;
     }
     return list[0] || INITIAL_RESTAURANT;
   } catch {
@@ -187,14 +223,14 @@ export const getStoredDishes = (restaurantId?: string): Dish[] => {
       return JSON.parse(specificData);
     }
     
-    // Check if initial curated dishes exist for this restaurant
+    // Check if initial curated dishes exist for default demo restaurants
     if (INITIAL_RESTAURANT_DISHES[targetRestId]) {
       const curated = INITIAL_RESTAURANT_DISHES[targetRestId];
       localStorage.setItem(restSpecificKey, JSON.stringify(curated));
       return curated;
     }
     
-    // If it's the default Bella Napoli
+    // If it's the default Bella Napoli demo
     if (targetRestId === 'bellanapoli') {
       const globalData = localStorage.getItem(STORAGE_KEYS.DISHES);
       const res = globalData ? JSON.parse(globalData) : INITIAL_DISHES;
@@ -202,15 +238,11 @@ export const getStoredDishes = (restaurantId?: string): Dish[] => {
       return res;
     }
 
-    // For any custom or newly created restaurant: generate their own unique starter menu
-    const allRests = getStoredRestaurantsList();
-    const rest = allRests.find(r => r.id.toLowerCase() === targetRestId.toLowerCase());
-    const restName = rest?.name || 'Ristorante';
-    const starters = createStarterDishesForRestaurant(restName, targetRestId);
-    localStorage.setItem(restSpecificKey, JSON.stringify(starters));
-    return starters;
+    // For any custom or newly created restaurant: start with empty menu []
+    localStorage.setItem(restSpecificKey, JSON.stringify([]));
+    return [];
   } catch {
-    return INITIAL_DISHES;
+    return [];
   }
 };
 
