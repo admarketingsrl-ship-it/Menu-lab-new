@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "WaiterCall": {
+      "title": "WaiterCall",
+      "description": "Real-time call for waiter or bill request from customer table",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "type": { "type": "string", "enum": ["call_waiter", "request_bill"] },
+        "message": { "type": "string" },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "resolved"] }
+      },
+      "required": ["id", "restaurantId", "tableNumber", "type", "timestamp", "status"]
+    },
+    "Dish": {
+      "title": "Dish",
+      "description": "Menu dish item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "isAvailable": { "type": "boolean" },
+        "isSpecial": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price", "category"]
+    }
+  },
+  "firestore": {
+    "/restaurants/{restaurantId}/waiterCalls/{callId}": {
+      "schema": "WaiterCall",
+      "description": "Real-time waiter calls and bill requests for a specific restaurant"
+    },
+    "/restaurants/{restaurantId}/dishes/{dishId}": {
+      "schema": "Dish",
+      "description": "Menu dishes for a specific restaurant"
+    }
+  }
+}

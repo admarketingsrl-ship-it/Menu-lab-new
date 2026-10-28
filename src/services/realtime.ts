@@ -6,7 +6,6 @@ import {
 } from './store';
 import { db } from './firebase';
 import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
-import { soundService } from './sound';
 
 type RealtimeMessageType = 
   | { type: 'NEW_CALL'; restaurantId: string; call: WaiterCall }
@@ -24,7 +23,9 @@ class RealtimeManager {
   private callsListeners: Set<ScopedListener<(calls: WaiterCall[], newCall?: WaiterCall) => void>> = new Set();
   private dishesListeners: Set<ScopedListener<(dishes: Dish[]) => void>> = new Set();
   private restaurantListeners: Set<ScopedListener<(restaurant: RestaurantInfo) => void>> = new Set();
-  private firestoreUnsubscribers: (() => void)[] = [];
+  
+  private activeFirestoreCallsListeners = new Map<string, () => void>();
+  private activeFirestoreDishesListeners = new Map<string, () => void>();
   private isInitialized = false;
 
   constructor() {
@@ -35,10 +36,10 @@ class RealtimeManager {
     if (typeof window === 'undefined' || this.isInitialized) return;
     this.isInitialized = true;
 
-    // 1. Setup BroadcastChannel for instant cross-tab real-time sync
+    // 1. Setup BroadcastChannel for instant same-browser cross-tab sync
     try {
       if ('BroadcastChannel' in window) {
-        this.channel = new BroadcastChannel('menulab_realtime_bus_v2');
+        this.channel = new BroadcastChannel('menulab_realtime_bus_v3');
         this.channel.onmessage = (event: MessageEvent<RealtimeMessageType>) => {
           this.handleIncomingMessage(event.data);
         };
@@ -47,7 +48,7 @@ class RealtimeManager {
       console.warn('BroadcastChannel not available:', e);
     }
 
-    // 2. Setup storage event listener as cross-tab fallback
+    // 2. Cross-tab localStorage event listener
     window.addEventListener('storage', (e) => {
       if (e.key?.startsWith('menulab_waiter_calls_')) {
         const restId = e.key.replace('menulab_waiter_calls_', '');
@@ -63,58 +64,75 @@ class RealtimeManager {
       }
     });
 
-    // 3. Connect Firestore live listeners if available
-    this.initFirestoreSync();
+    // 3. Connect Firestore listener for current default restaurant
+    const currentRest = getStoredRestaurant();
+    if (currentRest?.id) {
+      this.ensureFirestoreCallsListener(currentRest.id);
+      this.ensureFirestoreDishesListener(currentRest.id);
+    }
   }
 
-  private initFirestoreSync() {
-    try {
-      if (!db) return;
-      const currentRest = getStoredRestaurant();
-      const restId = currentRest.id || 'pizzeriavesuvio';
+  /**
+   * Ensure a dynamic Firestore live listener is active for a specific restaurant's waiter calls
+   */
+  public ensureFirestoreCallsListener(restaurantId: string) {
+    if (!db || !restaurantId || this.activeFirestoreCallsListeners.has(restaurantId.toLowerCase())) return;
 
-      // Live Firestore Waiter Calls
-      const callsCol = collection(db, 'restaurants', restId, 'waiterCalls');
-      const unsubCalls = onSnapshot(callsCol, (snapshot) => {
+    const restIdLower = restaurantId.toLowerCase();
+    try {
+      const callsCol = collection(db, 'restaurants', restIdLower, 'waiterCalls');
+      const unsub = onSnapshot(callsCol, (snapshot) => {
         if (!snapshot.empty) {
           const remoteCalls: WaiterCall[] = [];
           snapshot.forEach((d) => {
             remoteCalls.push(d.data() as WaiterCall);
           });
           remoteCalls.sort((a, b) => b.timestamp - a.timestamp);
-          
-          // Check for any newly arrived pending call
-          const localCalls = getStoredWaiterCalls();
+
+          const localCalls = getStoredWaiterCalls(restIdLower);
           const localIds = new Set(localCalls.map((c) => c.id));
+          
+          // Identify any new call arriving from Firestore that hasn't been saved locally yet
           const brandNew = remoteCalls.find((c) => !localIds.has(c.id) && c.status === 'pending');
 
-          saveStoredWaiterCalls(remoteCalls);
-          this.notifyCallsListeners(remoteCalls, brandNew);
+          saveStoredWaiterCalls(remoteCalls, restIdLower);
+          this.notifyCallsListeners(remoteCalls, brandNew, restIdLower);
         }
       }, (err) => {
-        // Silently fallback to local BroadcastChannel
-        console.warn('Firestore live listener offline or permission restricted, using local real-time channel:', err.message);
+        console.warn(`Firestore calls listener error for ${restIdLower}:`, err.message);
       });
-      this.firestoreUnsubscribers.push(unsubCalls);
 
-      // Live Firestore Dishes
-      const dishesCol = collection(db, 'restaurants', restId, 'dishes');
-      const unsubDishes = onSnapshot(dishesCol, (snapshot) => {
+      this.activeFirestoreCallsListeners.set(restIdLower, unsub);
+    } catch (e) {
+      console.warn(`Error setting up Firestore calls listener for ${restIdLower}:`, e);
+    }
+  }
+
+  /**
+   * Ensure a dynamic Firestore live listener is active for a specific restaurant's dishes
+   */
+  public ensureFirestoreDishesListener(restaurantId: string) {
+    if (!db || !restaurantId || this.activeFirestoreDishesListeners.has(restaurantId.toLowerCase())) return;
+
+    const restIdLower = restaurantId.toLowerCase();
+    try {
+      const dishesCol = collection(db, 'restaurants', restIdLower, 'dishes');
+      const unsub = onSnapshot(dishesCol, (snapshot) => {
         if (!snapshot.empty) {
           const remoteDishes: Dish[] = [];
           snapshot.forEach((d) => {
             remoteDishes.push(d.data() as Dish);
           });
-          saveStoredDishes(remoteDishes);
-          this.notifyDishesListeners(remoteDishes);
+          saveStoredDishes(remoteDishes, restIdLower);
+          this.notifyDishesListeners(remoteDishes, restIdLower);
         }
       }, (err) => {
-        console.warn('Firestore dishes live listener offline, using local channel:', err.message);
+        console.warn(`Firestore dishes listener error for ${restIdLower}:`, err.message);
       });
-      this.firestoreUnsubscribers.push(unsubDishes);
 
+      this.activeFirestoreDishesListeners.set(restIdLower, unsub);
     } catch (e) {
-      console.warn('Error connecting Firestore live sync:', e);
+      console.warn(`Error setting up Firestore dishes listener for ${restIdLower}:`, e);
     }
   }
 
@@ -123,9 +141,8 @@ class RealtimeManager {
 
     switch (msg.type) {
       case 'NEW_CALL': {
-        const restId = msg.restaurantId;
+        const restId = msg.restaurantId.toLowerCase();
         const calls = getStoredWaiterCalls(restId);
-        // Avoid duplicate if already stored
         if (!calls.some((c) => c.id === msg.call.id)) {
           const updated = [msg.call, ...calls];
           saveStoredWaiterCalls(updated, restId);
@@ -137,7 +154,7 @@ class RealtimeManager {
       }
 
       case 'RESOLVE_CALL': {
-        const restId = msg.restaurantId;
+        const restId = msg.restaurantId.toLowerCase();
         const calls = getStoredWaiterCalls(restId);
         const updated = calls.map((c) => c.id === msg.callId ? { ...c, status: 'resolved' as const } : c);
         saveStoredWaiterCalls(updated, restId);
@@ -146,14 +163,14 @@ class RealtimeManager {
       }
 
       case 'DISHES_UPDATED': {
-        const restId = msg.restaurantId;
+        const restId = msg.restaurantId.toLowerCase();
         saveStoredDishes(msg.dishes, restId);
         this.notifyDishesListeners(msg.dishes, restId);
         break;
       }
 
       case 'RESTAURANT_UPDATED': {
-        const restId = msg.restaurantId;
+        const restId = msg.restaurantId.toLowerCase();
         saveStoredRestaurant(msg.restaurant);
         this.notifyRestaurantListeners(msg.restaurant, restId);
         break;
@@ -194,13 +211,21 @@ class RealtimeManager {
     listener: (calls: WaiterCall[], newCall?: WaiterCall) => void,
     restaurantId?: string
   ): () => void {
+    const targetRestId = restaurantId || getStoredRestaurant().id;
     const item: ScopedListener<(calls: WaiterCall[], newCall?: WaiterCall) => void> = {
-      restaurantId,
+      restaurantId: targetRestId,
       fn: listener,
     };
     this.callsListeners.add(item);
-    // Initial call
-    listener(getStoredWaiterCalls(restaurantId));
+
+    // Automatically initialize Firestore live listener for this restaurant
+    if (targetRestId) {
+      this.ensureFirestoreCallsListener(targetRestId);
+    }
+
+    // Deliver initial cached calls
+    listener(getStoredWaiterCalls(targetRestId));
+
     return () => {
       this.callsListeners.delete(item);
     };
@@ -213,13 +238,19 @@ class RealtimeManager {
     listener: (dishes: Dish[]) => void,
     restaurantId?: string
   ): () => void {
+    const targetRestId = restaurantId || getStoredRestaurant().id;
     const item: ScopedListener<(dishes: Dish[]) => void> = {
-      restaurantId,
+      restaurantId: targetRestId,
       fn: listener,
     };
     this.dishesListeners.add(item);
-    // Initial call
-    listener(getStoredDishes(restaurantId));
+
+    if (targetRestId) {
+      this.ensureFirestoreDishesListener(targetRestId);
+    }
+
+    listener(getStoredDishes(targetRestId));
+
     return () => {
       this.dishesListeners.delete(item);
     };
@@ -232,25 +263,26 @@ class RealtimeManager {
     listener: (restaurant: RestaurantInfo) => void,
     restaurantId?: string
   ): () => void {
+    const targetRestId = restaurantId || getStoredRestaurant().id;
     const item: ScopedListener<(restaurant: RestaurantInfo) => void> = {
-      restaurantId,
+      restaurantId: targetRestId,
       fn: listener,
     };
     this.restaurantListeners.add(item);
-    listener(getStoredRestaurant(restaurantId));
+    listener(getStoredRestaurant(targetRestId));
     return () => {
       this.restaurantListeners.delete(item);
     };
   }
 
   /**
-   * Send a waiter call or bill request from the customer's device.
+   * Send a waiter call or bill request from the customer's phone/device.
    */
   public async submitWaiterCall(
     callData: Omit<WaiterCall, 'id' | 'timestamp' | 'status'>,
     restaurantId?: string
   ): Promise<WaiterCall> {
-    const restId = restaurantId || callData.restaurantId || getStoredRestaurant().id;
+    const restId = (restaurantId || callData.restaurantId || getStoredRestaurant().id).toLowerCase();
     const newCall: WaiterCall = {
       ...callData,
       restaurantId: restId,
@@ -264,21 +296,22 @@ class RealtimeManager {
     const updated = [newCall, ...existing];
     saveStoredWaiterCalls(updated, restId);
 
-    // 2. Broadcast via BroadcastChannel
+    // 2. Broadcast via BroadcastChannel (for same browser tabs)
     try {
       this.channel?.postMessage({ type: 'NEW_CALL', restaurantId: restId, call: newCall });
     } catch (e) {
       console.warn('Error posting to BroadcastChannel:', e);
     }
 
-    // 3. Dispatch window event for current window
+    // 3. Dispatch to local listeners
     this.notifyCallsListeners(updated, newCall, restId);
 
-    // 4. Persist to Firestore if online
+    // 4. Persist to Firestore in real time for cross-device notification (phone -> manager screen)
     try {
       if (db) {
         const docRef = doc(db, 'restaurants', restId, 'waiterCalls', newCall.id);
         await setDoc(docRef, newCall);
+        console.log(`[RealtimeManager] Waiter call ${newCall.id} synced to Firestore for restaurant ${restId}`);
       }
     } catch (e) {
       console.warn('Could not sync call to Firestore:', e);
@@ -291,7 +324,7 @@ class RealtimeManager {
    * Mark a waiter call as resolved from the manager dashboard.
    */
   public async resolveWaiterCall(callId: string, restaurantId?: string) {
-    const restId = restaurantId || getStoredRestaurant().id;
+    const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
     // 1. Update local storage
     const existing = getStoredWaiterCalls(restId);
     const updated = existing.map((c) => c.id === callId ? { ...c, status: 'resolved' as const } : c);
@@ -304,7 +337,7 @@ class RealtimeManager {
 
     this.notifyCallsListeners(updated, undefined, restId);
 
-    // 3. Firestore
+    // 3. Firestore update
     try {
       if (db) {
         const docRef = doc(db, 'restaurants', restId, 'waiterCalls', callId);
@@ -319,7 +352,7 @@ class RealtimeManager {
    * Broadcast dishes update across all customer screens in real time.
    */
   public async broadcastDishes(dishes: Dish[], restaurantId?: string) {
-    const restId = restaurantId || getStoredRestaurant().id;
+    const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
     // 1. Save local
     saveStoredDishes(dishes, restId);
 
@@ -347,11 +380,12 @@ class RealtimeManager {
    * Broadcast restaurant details (e.g. promo banners, tables)
    */
   public broadcastRestaurant(restaurant: RestaurantInfo) {
+    const restId = restaurant.id.toLowerCase();
     saveStoredRestaurant(restaurant);
     try {
-      this.channel?.postMessage({ type: 'RESTAURANT_UPDATED', restaurantId: restaurant.id, restaurant });
+      this.channel?.postMessage({ type: 'RESTAURANT_UPDATED', restaurantId: restId, restaurant });
     } catch {}
-    this.notifyRestaurantListeners(restaurant, restaurant.id);
+    this.notifyRestaurantListeners(restaurant, restId);
   }
 }
 
