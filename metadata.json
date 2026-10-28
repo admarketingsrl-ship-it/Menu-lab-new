@@ -1,0 +1,6 @@
+{
+  "name": "MenuLab - Digital Restaurant Menu & SaaS Platform",
+  "description": "SaaS platform for restaurants, pizzerias, and bars. QR Code digital menu with dietary filters, daily specials, waiter calls, and admin dashboard with Excel import and Firebase backend.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

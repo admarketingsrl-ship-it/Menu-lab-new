@@ -1,0 +1,80 @@
+export interface Dish {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  image: string;
+  allergens: string[];
+  isAvailable: boolean;
+  isSpecial?: boolean;
+  badges?: string[];
+  dietary?: ('Vegetariano' | 'Vegano' | 'Senza Glutine' | 'Senza Lattosio')[];
+}
+
+export interface CouponCode {
+  id: string;
+  code: string;
+  discountPercent: number;
+  description: string;
+  active: boolean;
+}
+
+export interface PromoPopup {
+  title: string;
+  subtitle: string;
+  couponCode?: string;
+  active: boolean;
+}
+
+export interface SubscriptionInfo {
+  planName: string;
+  status: 'Attivo' | 'In Scadenza' | 'Scaduto';
+  endDate: string;
+  monthlyFee: number;
+}
+
+export interface RestaurantInfo {
+  id: string;
+  name: string;
+  tagline: string;
+  logo: string;
+  coverImage: string;
+  address: string;
+  phone: string;
+  email: string;
+  adminEmail?: string;
+  adminPassword?: string;
+  isOpen: boolean;
+  openingHours: string;
+  currency: string;
+  googleReviewUrl: string;
+  tripAdvisorUrl: string;
+  activeBanner?: {
+    title: string;
+    subtitle: string;
+    active: boolean;
+  };
+  promoPopup?: PromoPopup;
+  coupons?: CouponCode[];
+  subscription?: SubscriptionInfo;
+  tables?: string[]; // e.g. ['Tavolo 1', 'Tavolo 2', ...]
+}
+
+export interface WaiterCall {
+  id: string;
+  restaurantId?: string;
+  tableNumber: string;
+  type: 'call_waiter' | 'request_bill' | 'custom';
+  message?: string;
+  timestamp: number;
+  status: 'pending' | 'resolved';
+}
+
+export interface ReviewItem {
+  id: string;
+  rating: number;
+  comment: string;
+  name?: string;
+  timestamp: number;
+}
