@@ -58,11 +58,24 @@ export const WaiterCallModal: React.FC<WaiterCallModalProps> = ({
   };
 
   const quickWaiterNotes = [
-    'Vorremmo ordinare',
-    'Serve acqua / pane',
-    'Posate o tovaglioli',
-    'Informazione sui piatti'
+    '🌶️ Pepe / Olio piccante',
+    '🧀 Parmigiano / Formaggio',
+    '🍞 Pane / Grissini',
+    '🧂 Sale / Olio / Aceto',
+    '🥤 Bicchieri / Ghiaccio',
+    '💧 Acqua naturale / Frizzante',
+    '🍴 Posate / Tovaglioli',
+    '👶 Seggiolone bimbi',
+    '📝 Vorremmo ordinare'
   ];
+
+  const handleSelectNote = (note: string) => {
+    if (!message) {
+      setMessage(note);
+    } else if (!message.includes(note)) {
+      setMessage(`${message}, ${note}`);
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
@@ -209,37 +222,45 @@ export const WaiterCallModal: React.FC<WaiterCallModalProps> = ({
 
             {/* Quick chips for Waiter Call */}
             {callType === 'call_waiter' && (
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">
-                  Motivo rapido:
+              <div className="space-y-2">
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl text-[11px] text-amber-800 dark:text-amber-300 font-medium flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                  <span>Seleziona o scrivi cosa ti serve: il cameriere lo porterà direttamente al primo giro!</span>
+                </div>
+
+                <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider block pt-1">
+                  Richieste rapide frequenti:
                 </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {quickWaiterNotes.map((note) => (
-                    <button
-                      key={note}
-                      type="button"
-                      onClick={() => setMessage(note)}
-                      className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors ${
-                        message === note
-                          ? 'bg-amber-500 text-white border-amber-500 font-bold'
-                          : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300'
-                      }`}
-                    >
-                      {note}
-                    </button>
-                  ))}
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                  {quickWaiterNotes.map((note) => {
+                    const isSelected = message.includes(note);
+                    return (
+                      <button
+                        key={note}
+                        type="button"
+                        onClick={() => handleSelectNote(note)}
+                        className={`text-[11px] px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer font-medium ${
+                          isSelected
+                            ? 'bg-amber-500 text-white border-amber-500 font-bold shadow-sm'
+                            : 'bg-zinc-100 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                        }`}
+                      >
+                        {note}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Optional Note */}
+            {/* Optional or Custom Direct Request Note */}
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
-                Note Aggiuntive (Opzionale)
+              <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
+                {callType === 'call_waiter' ? 'Richiesta Specifica per il Cameriere' : 'Note Aggiuntive sul Conto'}
               </label>
               <input
                 type="text"
-                placeholder={callType === 'call_waiter' ? 'Es. Sedia alta bimbi, bicchiere in più...' : 'Es. Intestazione fattura, divisione in due...'}
+                placeholder={callType === 'call_waiter' ? 'Es. Pepe nero, olio piccante, un seggiolone bimbi...' : 'Es. Intestazione fattura, divisione in due...'}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/50 text-zinc-900 dark:text-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500"

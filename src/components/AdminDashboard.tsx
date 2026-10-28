@@ -808,6 +808,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                 <h3 className="text-xl sm:text-2xl font-black">
                   {activeCallAlert.tableNumber}: {activeCallAlert.message || (activeCallAlert.type === 'call_waiter' ? 'Assistenza al tavolo' : 'Richiesta conto')}
                 </h3>
+                {activeCallAlert.message && (
+                  <div className="mt-1.5 inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-md px-3 py-1 rounded-xl text-xs font-black text-white border border-white/30">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-300 animate-spin" />
+                    <span>Da portare subito: "{activeCallAlert.message}"</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -885,7 +891,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                         </div>
                         <div>
                           <p className="text-sm font-bold">{call.tableNumber} - {call.type === 'call_waiter' ? 'Chiamata Cameriere' : 'Richiesta Conto'}</p>
-                          <p className="text-xs text-zinc-500">{call.message || 'Nessuna nota aggiuntiva'}</p>
+                          {call.message ? (
+                            <span className="mt-0.5 inline-block px-2.5 py-0.5 rounded-lg bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold text-[11px] border border-amber-500/30">
+                              Portare: "{call.message}"
+                            </span>
+                          ) : (
+                            <p className="text-xs text-zinc-500">Nessuna richiesta specifica</p>
+                          )}
                         </div>
                       </div>
                       {call.status === 'pending' ? (
@@ -1344,7 +1356,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                             {call.type === 'call_waiter' ? '🔔 Chiamata Cameriere' : '🧾 Richiesta Conto'}
                           </span>
                         </div>
-                        <p className="text-xs text-zinc-700 dark:text-zinc-300 font-medium mt-1">{call.message || 'Nessuna nota aggiuntiva'}</p>
+                        {call.message ? (
+                          <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-300 font-black text-xs inline-flex items-center gap-1.5 shadow-sm">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500 flex-shrink-0 animate-pulse" />
+                            <span>Da portare al tavolo: <strong>"{call.message}"</strong></span>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-zinc-400 mt-1 italic">Nessuna richiesta specifica inserita</p>
+                        )}
                         <p className="text-[10px] text-zinc-400 mt-1">Ricevuto alle {new Date(call.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                       </div>
                     </div>
