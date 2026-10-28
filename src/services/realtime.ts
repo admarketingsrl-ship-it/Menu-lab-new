@@ -4,10 +4,10 @@ import {
   getStoredWaiterCalls, saveStoredWaiterCalls, 
   getStoredRestaurant, saveStoredRestaurant,
   getStoredTableOrders, saveStoredTableOrders,
-  resetTableOrdersForTable
+  resetTableOrdersForTable, clearResolvedWaiterCalls
 } from './store';
 import { db } from './firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc, getDocs } from 'firebase/firestore';
 
 type RealtimeMessageType = 
   | { type: 'NEW_CALL'; restaurantId: string; call: WaiterCall }
@@ -29,6 +29,7 @@ class RealtimeManager {
   private ordersListeners: Set<ScopedListener<(orders: TableOrder[], newOrder?: TableOrder) => void>> = new Set();
   private dishesListeners: Set<ScopedListener<(dishes: Dish[]) => void>> = new Set();
   private restaurantListeners: Set<ScopedListener<(restaurant: RestaurantInfo) => void>> = new Set();
+  private resetListeners: Set<ScopedListener<(tableNumber: string) => void>> = new Set();
   
   private activeFirestoreCallsListeners = new Map<string, () => void>();
   private activeFirestoreOrdersListeners = new Map<string, () => void>();
@@ -236,6 +237,7 @@ class RealtimeManager {
         const updatedCalls = getStoredWaiterCalls(restId);
         this.notifyOrdersListeners(updatedOrders, undefined, restId);
         this.notifyCallsListeners(updatedCalls, undefined, restId);
+        this.notifyResetListeners(msg.tableNumber, restId);
         break;
       }
 
@@ -283,6 +285,14 @@ class RealtimeManager {
     this.restaurantListeners.forEach((listener) => {
       if (!listener.restaurantId || !restaurantId || listener.restaurantId.toLowerCase() === restaurantId.toLowerCase()) {
         listener.fn(restaurant);
+      }
+    });
+  }
+
+  private notifyResetListeners(tableNumber: string, restaurantId?: string) {
+    this.resetListeners.forEach((listener) => {
+      if (!listener.restaurantId || !restaurantId || listener.restaurantId.toLowerCase() === restaurantId.toLowerCase()) {
+        listener.fn(tableNumber);
       }
     });
   }
@@ -496,6 +506,24 @@ class RealtimeManager {
   }
 
   /**
+   * Subscribe to live table reset events (when manager closes table bill).
+   */
+  public subscribeToTableReset(
+    listener: (tableNumber: string) => void,
+    restaurantId?: string
+  ): () => void {
+    const targetRestId = restaurantId || getStoredRestaurant().id;
+    const item: ScopedListener<(tableNumber: string) => void> = {
+      restaurantId: targetRestId,
+      fn: listener,
+    };
+    this.resetListeners.add(item);
+    return () => {
+      this.resetListeners.delete(item);
+    };
+  }
+
+  /**
    * Reset / Clear table orders and calls when manager closes table bill.
    */
   public async resetTable(tableNumber: string, restaurantId?: string) {
@@ -511,6 +539,7 @@ class RealtimeManager {
 
     this.notifyOrdersListeners(updatedOrders, undefined, restId);
     this.notifyCallsListeners(updatedCalls, undefined, restId);
+    this.notifyResetListeners(tableNumber, restId);
 
     // Also clear from Firestore for that table
     try {
@@ -525,6 +554,30 @@ class RealtimeManager {
       }
     } catch (e) {
       console.warn('Could not reset table in Firestore:', e);
+    }
+  }
+
+  /**
+   * Clear all resolved waiter calls and completed activity logs to give manager a pristine workspace.
+   */
+  public async clearAllResolvedCalls(restaurantId?: string) {
+    const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
+    clearResolvedWaiterCalls(restId);
+    const updatedCalls = getStoredWaiterCalls(restId);
+    this.notifyCallsListeners(updatedCalls, undefined, restId);
+
+    try {
+      if (db) {
+        const callsCol = collection(db, 'restaurants', restId, 'waiterCalls');
+        const snapshot = await getDocs(callsCol);
+        for (const d of snapshot.docs) {
+          if (d.data().status === 'resolved') {
+            await deleteDoc(doc(db, 'restaurants', restId, 'waiterCalls', d.id)).catch(() => {});
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not clear resolved calls in Firestore:', e);
     }
   }
 

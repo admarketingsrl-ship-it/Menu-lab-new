@@ -12,6 +12,7 @@ import { ReviewModal } from './ReviewModal';
 import { PromoPopupModal } from './PromoPopupModal';
 import { AiSommelierModal } from './AiSommelierModal';
 import { OrderCartModal } from './OrderCartModal';
+import { TableClosedModal } from './TableClosedModal';
 
 export const PublicMenu: React.FC = () => {
   const getInitialRestaurant = (): RestaurantInfo => {
@@ -59,6 +60,7 @@ export const PublicMenu: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [submittedOrders, setSubmittedOrders] = useState<TableOrder[]>([]);
+  const [isTableClosedModalOpen, setIsTableClosedModalOpen] = useState(false);
 
   // 1. Parse restaurant and table query param from scanned QR Code on mount
   useEffect(() => {
@@ -123,10 +125,19 @@ export const PublicMenu: React.FC = () => {
       setSubmittedOrders(myTableOrders);
     }, restaurant.id);
 
+    const unsubReset = realtimeManager.subscribeToTableReset((resetTbl) => {
+      if (resetTbl.toLowerCase() === tableNumber.toLowerCase()) {
+        setCartItems([]);
+        setIsCartModalOpen(false);
+        setIsTableClosedModalOpen(true);
+      }
+    }, restaurant.id);
+
     return () => {
       unsubDishes();
       unsubRestaurant();
       unsubOrders();
+      unsubReset();
     };
   }, [restaurant?.id, tableNumber]);
 
@@ -535,10 +546,12 @@ export const PublicMenu: React.FC = () => {
                 return (
                   <div
                     key={`spec_${dish.id}`}
-                    onClick={() => setActiveDish(dish)}
-                    className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all cursor-pointer group flex flex-col"
+                    className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all group flex flex-col"
                   >
-                    <div className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                    <div 
+                      className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer"
+                      onClick={() => setActiveDish(dish)}
+                    >
                       <img
                         src={dish.image}
                         alt={dish.name}
@@ -555,7 +568,7 @@ export const PublicMenu: React.FC = () => {
                       </div>
                     </div>
                     <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                      <div>
+                      <div className="cursor-pointer" onClick={() => setActiveDish(dish)}>
                         <h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-amber-500 transition-colors">
                           {dish.name}
                         </h3>
@@ -565,9 +578,36 @@ export const PublicMenu: React.FC = () => {
                       </div>
                       <div className="flex items-center justify-between pt-3 border-t border-zinc-100 dark:border-zinc-800">
                         <span className="text-xs font-semibold text-zinc-400">{dish.category}</span>
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          Scopri di più <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
+                        {/* Cart interaction for special dish */}
+                        {restaurant.tableOrderingEnabled && dish.isAvailable && (
+                          <div>
+                            {getItemCartQty(dish.id) > 0 ? (
+                              <div className="flex items-center gap-2 bg-amber-500 text-white rounded-xl px-2.5 py-1 shadow-md font-bold text-xs">
+                                <button 
+                                  onClick={(e) => handleUpdateCartQuantity(dish.id, -1, e)} 
+                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="px-1 text-xs font-black">{getItemCartQty(dish.id)}</span>
+                                <button 
+                                  onClick={(e) => handleUpdateCartQuantity(dish.id, 1, e)} 
+                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => handleAddToCart(dish, e)}
+                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Aggiungi</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -785,6 +825,13 @@ export const PublicMenu: React.FC = () => {
         isOpen={isAiModalOpen}
         onClose={() => setIsAiModalOpen(false)}
         dishes={dishes}
+      />
+
+      <TableClosedModal
+        isOpen={isTableClosedModalOpen}
+        onClose={() => setIsTableClosedModalOpen(false)}
+        tableNumber={tableNumber}
+        restaurant={restaurant}
       />
 
     </div>

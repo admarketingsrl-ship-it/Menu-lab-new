@@ -1254,6 +1254,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                   Suono Conto
                 </button>
                 <button
+                  onClick={() => {
+                    if (confirm('Vuoi ripulire lo storico delle chiamate già servite e ripartire da una schermata pulita?')) {
+                      realtimeManager.clearAllResolvedCalls(restaurant.id);
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 text-xs font-bold hover:bg-red-500/20 transition-all cursor-pointer"
+                  title="Ripulisci tutte le chiamate servite e riparti da una schermata vuota"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Ripulisci Storico</span>
+                </button>
+                <button
                   onClick={() => setWaiterCalls(getStoredWaiterCalls())}
                   className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-xs font-bold hover:bg-zinc-200 transition-colors"
                 >

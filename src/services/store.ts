@@ -330,9 +330,17 @@ export const resetTableOrdersForTable = (tableNumber: string, restaurantId?: str
   const filteredOrders = existingOrders.filter((o) => o.tableNumber.toLowerCase() !== tableNumber.toLowerCase());
   saveStoredTableOrders(filteredOrders, targetRestId);
 
-  // Also clear resolved waiter calls for that table
+  // Also clear waiter calls for that table
   const existingCalls = getStoredWaiterCalls(targetRestId);
   const filteredCalls = existingCalls.filter((c) => c.tableNumber.toLowerCase() !== tableNumber.toLowerCase());
   saveStoredWaiterCalls(filteredCalls, targetRestId);
 };
+
+export const clearResolvedWaiterCalls = (restaurantId?: string) => {
+  const targetRestId = restaurantId || localStorage.getItem(STORAGE_KEYS.CURRENT_RESTAURANT_ID) || 'bellanapoli';
+  const calls = getStoredWaiterCalls(targetRestId);
+  const pendingCalls = calls.filter((c) => c.status === 'pending');
+  saveStoredWaiterCalls(pendingCalls, targetRestId);
+};
+
 
