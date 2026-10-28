@@ -32,6 +32,7 @@ export interface SubscriptionInfo {
   status: 'Attivo' | 'In Scadenza' | 'Scaduto';
   endDate: string;
   monthlyFee: number;
+  tableOrderingEnabled?: boolean;
 }
 
 export interface RestaurantInfo {
@@ -59,6 +60,7 @@ export interface RestaurantInfo {
   coupons?: CouponCode[];
   subscription?: SubscriptionInfo;
   tables?: string[]; // e.g. ['Tavolo 1', 'Tavolo 2', ...]
+  tableOrderingEnabled?: boolean; // Feature flag for ordering directly from table QR
 }
 
 export interface WaiterCall {
@@ -69,6 +71,31 @@ export interface WaiterCall {
   message?: string;
   timestamp: number;
   status: 'pending' | 'resolved';
+}
+
+export interface CartItem {
+  dish: Dish;
+  quantity: number;
+  notes?: string;
+}
+
+export interface TableOrderItem {
+  dishId: string;
+  dishName: string;
+  price: number;
+  quantity: number;
+  notes?: string;
+}
+
+export interface TableOrder {
+  id: string;
+  restaurantId: string;
+  tableNumber: string;
+  items: TableOrderItem[];
+  totalAmount: number;
+  note?: string; // Overall order note from customer (e.g., "Invia insieme al bere", "Senza glutine")
+  timestamp: number;
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
 }
 
 export interface ReviewItem {

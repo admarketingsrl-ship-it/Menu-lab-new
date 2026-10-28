@@ -2,11 +2,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Allow public read & write to waiter calls per restaurant so customers can call waiter and managers receive notifications
+    // Allow public read & write to waiter calls per restaurant
     match /restaurants/{restaurantId}/waiterCalls/{callId} {
       allow read, write: if true;
     }
     
+    // Allow public read & write to table orders per restaurant
+    match /restaurants/{restaurantId}/tableOrders/{orderId} {
+      allow read, write: if true;
+    }
+
     // Allow public read & write for dishes per restaurant
     match /restaurants/{restaurantId}/dishes/{dishId} {
       allow read, write: if true;

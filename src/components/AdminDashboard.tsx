@@ -3,14 +3,15 @@ import {
   LayoutDashboard, UtensilsCrossed, FileSpreadsheet, Bell, QrCode, Settings, 
   Plus, Edit3, Trash2, CheckCircle, AlertCircle, LogOut, Search, Sparkles, 
   Check, Save, RefreshCw, Printer, ShieldCheck, ShieldAlert, HardDrive, CloudUpload, DownloadCloud, Tag, Percent, Copy, ExternalLink,
-  Volume2, VolumeX, Radio, CheckSquare, BellRing, Receipt
+  Volume2, VolumeX, Radio, CheckSquare, BellRing, Receipt, ShoppingBag, Utensils
 } from 'lucide-react';
-import { Dish, RestaurantInfo, WaiterCall, ReviewItem, CouponCode } from '../types';
+import { Dish, RestaurantInfo, WaiterCall, ReviewItem, CouponCode, TableOrder } from '../types';
 import { 
   getStoredDishes, saveStoredDishes, 
   getStoredRestaurant, saveStoredRestaurant, 
   getStoredCategories, saveStoredCategories,
   getStoredWaiterCalls, saveStoredWaiterCalls,
+  getStoredTableOrders, saveStoredTableOrders,
   getStoredReviews, getStoredRestaurantsList, setCurrentRestaurantId 
 } from '../services/store';
 import { ExcelImportModal } from './ExcelImportModal';
@@ -43,6 +44,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
   const [dishes, setDishes] = useState<Dish[]>(() => getStoredDishes(initialRest.id));
   const [categories, setCategories] = useState<string[]>(() => getStoredCategories(initialRest.id));
   const [waiterCalls, setWaiterCalls] = useState<WaiterCall[]>(() => getStoredWaiterCalls(initialRest.id));
+  const [tableOrders, setTableOrders] = useState<TableOrder[]>(() => getStoredTableOrders(initialRest.id));
   const [reviews] = useState<ReviewItem[]>(getStoredReviews());
 
   // Check if session has active admin token for this restaurant
@@ -88,6 +90,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
   // Audio and Realtime Alert State
   const [isSoundMuted, setIsSoundMuted] = useState(soundService.getIsMuted());
   const [activeCallAlert, setActiveCallAlert] = useState<WaiterCall | null>(null);
+  const [activeOrderAlert, setActiveOrderAlert] = useState<TableOrder | null>(null);
   const [soundTestToast, setSoundTestToast] = useState(false);
 
   // Switch restaurant helper
@@ -101,6 +104,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
     setDishes(getStoredDishes(found.id));
     setCategories(getStoredCategories(found.id));
     setWaiterCalls(getStoredWaiterCalls(found.id));
+    setTableOrders(getStoredTableOrders(found.id));
     setEmail(found.adminEmail || '');
     setPassword(found.adminPassword || '');
     setIsLoggedIn(true);
@@ -124,14 +128,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
     return () => unsubscribe();
   }, []);
 
-  // Real-time synchronization for Waiter Calls & Menu updates strictly scoped to this restaurant
+  // Real-time synchronization for Waiter Calls, Table Orders & Menu updates strictly scoped to this restaurant
   useEffect(() => {
     if (!restaurant?.id) return;
 
     const unsubCalls = realtimeManager.subscribeToCalls((calls, newCall) => {
       setWaiterCalls(calls);
-      
-      // When a new call arrives that is pending, trigger audio chime and visual alert!
       if (newCall && newCall.status === 'pending') {
         if (newCall.type === 'call_waiter') {
           soundService.playWaiterCallSound();
@@ -139,6 +141,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
           soundService.playBillRequestSound();
         }
         setActiveCallAlert(newCall);
+      }
+    }, restaurant.id);
+
+    const unsubOrders = realtimeManager.subscribeToOrders((orders, newOrder) => {
+      setTableOrders(orders);
+      if (newOrder && newOrder.status === 'pending') {
+        soundService.playWaiterCallSound();
+        setActiveOrderAlert(newOrder);
       }
     }, restaurant.id);
 
@@ -152,10 +162,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
 
     return () => {
       unsubCalls();
+      unsubOrders();
       unsubDishes();
       unsubRest();
     };
   }, [restaurant?.id]);
+
+  const handleResetTable = (tableNumber: string) => {
+    if (confirm(`Vuoi chiudere il conto e resettare il ${tableNumber}? Questo azzererà gli ordini e le chiamate attive per questo tavolo.`)) {
+      realtimeManager.resetTable(tableNumber, restaurant.id);
+      if (activeOrderAlert?.tableNumber === tableNumber) {
+        setActiveOrderAlert(null);
+      }
+      if (activeCallAlert?.tableNumber === tableNumber) {
+        setActiveCallAlert(null);
+      }
+    }
+  };
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -783,6 +806,61 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
       {/* Main Content Area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
         
+        {/* Prominent Visual Alert for Incoming Table Orders */}
+        {activeOrderAlert && activeOrderAlert.status === 'pending' && (
+          <div className="mb-8 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 animate-pulse border-2 border-white/20">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0 shadow-inner">
+                <ShoppingBag className="w-7 h-7 text-white animate-bounce" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="bg-white/30 px-3 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider">
+                    🛒 Nuovo Ordine da Tavolo
+                  </span>
+                  <span className="text-xs text-white/80 font-medium">Inviato dal cliente</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-black">
+                  {activeOrderAlert.tableNumber}: {activeOrderAlert.items.reduce((a, b) => a + b.quantity, 0)} prodotti • Totale: {activeOrderAlert.totalAmount.toFixed(2)} {restaurant.currency}
+                </h3>
+                {activeOrderAlert.note && (
+                  <p className="text-xs text-amber-200 italic font-medium">
+                    Note: "{activeOrderAlert.note}"
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <button
+                onClick={() => {
+                  realtimeManager.updateTableOrderStatus(activeOrderAlert.id, 'accepted', restaurant.id);
+                  setActiveOrderAlert(null);
+                }}
+                className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-white text-zinc-900 hover:bg-zinc-100 font-black text-xs shadow-xl transition-all cursor-pointer"
+              >
+                ✓ Accetta in Cucina
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab('calls');
+                  setActiveOrderAlert(null);
+                }}
+                className="px-4 py-3 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs transition-colors cursor-pointer"
+              >
+                Vedi Dettaglio Tavolo
+              </button>
+              <button
+                onClick={() => setActiveOrderAlert(null)}
+                className="p-3 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                title="Chiudi Avviso"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Prominent Visual Alert for Incoming Waiter Calls & Bill Requests */}
         {activeCallAlert && activeCallAlert.status === 'pending' && (
           <div className={`mb-8 p-5 sm:p-6 rounded-3xl text-white shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-5 animate-pulse border-2 border-white/20 ${
@@ -1184,6 +1262,118 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                 </button>
               </div>
             </div>
+
+            {/* ORDINI RICEVUTI DAI TAVOLI */}
+            {restaurant.tableOrderingEnabled && (
+              <div className="space-y-4 pt-2 border-b border-zinc-200 dark:border-zinc-800 pb-8">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5 text-amber-500" />
+                    <h4 className="text-lg font-black text-zinc-900 dark:text-white">Ordini Inviati dai Tavoli ({tableOrders.length})</h4>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                      Modalità Tavolo Sbloccata
+                    </span>
+                  </div>
+                </div>
+
+                {tableOrders.length === 0 ? (
+                  <div className="p-6 rounded-3xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-500 space-y-1">
+                    <Utensils className="w-8 h-8 text-zinc-400 mx-auto" />
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200">Nessun ordine attivo al momento</p>
+                    <p>Gli ordini inviati direttamente dai clienti via QR code tavolo appariranno qui divisi per tavolo con il riepilogo prodotti e totale.</p>
+                  </div>
+                ) : (
+                  /* Group orders by tableNumber */
+                  (() => {
+                    const groupedByTable = tableOrders.reduce((acc, order) => {
+                      const t = order.tableNumber;
+                      if (!acc[t]) acc[t] = [];
+                      acc[t].push(order);
+                      return acc;
+                    }, {} as Record<string, TableOrder[]>);
+
+                    return (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {Object.entries(groupedByTable).map(([tblName, ordersList]) => {
+                          const tableSum = ordersList.reduce((a, b) => a + b.totalAmount, 0);
+
+                          return (
+                            <div key={tblName} className="p-5 rounded-3xl bg-white dark:bg-zinc-900 border-2 border-amber-500/40 shadow-xl space-y-4">
+                              <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white font-black text-sm flex items-center justify-center shadow-md shadow-amber-500/30">
+                                    {tblName.replace(/[^0-9A-Za-z]/g, '') || 'T'}
+                                  </div>
+                                  <div>
+                                    <h5 className="font-black text-base text-zinc-900 dark:text-white">{tblName}</h5>
+                                    <p className="text-xs text-zinc-400 font-semibold">{ordersList.length} ordini inviati per questo tavolo</p>
+                                  </div>
+                                </div>
+
+                                <div className="text-right">
+                                  <span className="text-[10px] uppercase font-bold text-zinc-400 block">Totale Conto</span>
+                                  <span className="text-lg font-black text-amber-500">
+                                    {tableSum.toFixed(2)} {restaurant.currency}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Orders list breakdown */}
+                              <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                                {ordersList.map((ord, oIdx) => (
+                                  <div key={ord.id} className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/60 space-y-2 text-xs">
+                                    <div className="flex items-center justify-between font-bold">
+                                      <span className="text-zinc-500">
+                                        Ordine #{ordersList.length - oIdx} • Ore {new Date(ord.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] ${
+                                        ord.status === 'pending' ? 'bg-amber-500 text-white font-black animate-pulse' : 'bg-emerald-500/20 text-emerald-400 font-bold'
+                                      }`}>
+                                        {ord.status === 'pending' ? 'NUOVO ORDINE' : 'In Cucina'}
+                                      </span>
+                                    </div>
+
+                                    <div className="space-y-1 pt-1">
+                                      {ord.items.map((it, iIdx) => (
+                                        <div key={iIdx} className="flex justify-between items-center text-zinc-800 dark:text-zinc-200">
+                                          <span>
+                                            <strong className="text-amber-500">{it.quantity}x</strong> {it.dishName}
+                                            {it.notes && <em className="text-zinc-400 text-[11px] font-medium ml-1">({it.notes})</em>}
+                                          </span>
+                                          <span className="font-bold">{(it.price * it.quantity).toFixed(2)} {restaurant.currency}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {ord.note && (
+                                      <p className="text-[11px] text-amber-600 dark:text-amber-400 italic bg-amber-500/10 p-2 rounded-xl">
+                                        Note Tavolo: "{ord.note}"
+                                      </p>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Reset / Close Table Bill Button */}
+                              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between gap-2">
+                                <button
+                                  onClick={() => handleResetTable(tblName)}
+                                  className="w-full py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-black text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span>Chiudi Conto & Resetta {tblName}</span>
+                                </button>
+                              </div>
+
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            )}
 
             <div className="space-y-4">
               {waiterCalls.length === 0 ? (

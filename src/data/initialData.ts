@@ -34,7 +34,9 @@ export const INITIAL_RESTAURANT: RestaurantInfo = {
     status: 'Attivo',
     endDate: '2026-12-31',
     monthlyFee: 49,
+    tableOrderingEnabled: true,
   },
+  tableOrderingEnabled: true,
   activeBanner: {
     title: '🍕 Specialità della Settimana: Pizza Nerano Gourmet',
     subtitle: 'Crema di zucchine di stagione, provola affumicata e chips di provolone del Monaco.',

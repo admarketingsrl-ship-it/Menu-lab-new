@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Star, Share2, Globe, Clock, MapPin, CheckCircle, Sparkles, Utensils, ChevronRight, Tag, Percent, Receipt, QrCode } from 'lucide-react';
-import { Dish, RestaurantInfo, WaiterCall, ReviewItem } from '../types';
+import { Search, Bell, Star, Share2, Globe, Clock, MapPin, CheckCircle, Sparkles, Utensils, ChevronRight, Tag, Percent, Receipt, QrCode, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { Dish, RestaurantInfo, WaiterCall, ReviewItem, CartItem, TableOrder } from '../types';
 import { 
   getStoredDishes, getStoredRestaurant, getStoredCategories, 
   getStoredReviews, saveStoredReviews, setCurrentRestaurantId 
@@ -11,6 +11,7 @@ import { WaiterCallModal } from './WaiterCallModal';
 import { ReviewModal } from './ReviewModal';
 import { PromoPopupModal } from './PromoPopupModal';
 import { AiSommelierModal } from './AiSommelierModal';
+import { OrderCartModal } from './OrderCartModal';
 
 export const PublicMenu: React.FC = () => {
   const getInitialRestaurant = (): RestaurantInfo => {
@@ -44,7 +45,7 @@ export const PublicMenu: React.FC = () => {
   const [appliedCouponCode, setAppliedCouponCode] = useState<string | null>(null);
   const [couponMessage, setCouponMessage] = useState<string | null>(null);
 
-  // Modals
+  // Modals & Cart State
   const [activeDish, setActiveDish] = useState<Dish | null>(null);
   const [isWaiterModalOpen, setIsWaiterModalOpen] = useState(false);
   const [waiterModalType, setWaiterModalType] = useState<'call_waiter' | 'request_bill'>('call_waiter');
@@ -53,6 +54,11 @@ export const PublicMenu: React.FC = () => {
   const [isAiModalOpen, setIsAiModalOpen] = useState(false);
   const [shareToast, setShareToast] = useState(false);
   const [actionSuccessToast, setActionSuccessToast] = useState<string | null>(null);
+
+  // Table Order Cart state
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [submittedOrders, setSubmittedOrders] = useState<TableOrder[]>([]);
 
   // 1. Parse restaurant and table query param from scanned QR Code on mount
   useEffect(() => {
@@ -76,7 +82,6 @@ export const PublicMenu: React.FC = () => {
       let identifiedTable = '';
       if (tParam) {
         let clean = decodeURIComponent(tParam).trim();
-        // If query param is just a number like "3", format as "Tavolo 3"
         if (/^\d+$/.test(clean)) {
           clean = `Tavolo ${clean}`;
         }
@@ -84,7 +89,6 @@ export const PublicMenu: React.FC = () => {
         setIsTableLocked(true);
         sessionStorage.setItem('menulab_scanned_table', identifiedTable);
       } else {
-        // Fallback to session storage if previously scanned in this tab session
         const stored = sessionStorage.getItem('menulab_scanned_table');
         if (stored) {
           identifiedTable = stored;
@@ -100,9 +104,10 @@ export const PublicMenu: React.FC = () => {
     }
   }, []);
 
-  // 2. Real-time Subscription to Menu & Restaurant Updates scoped to this restaurant
+  // 2. Real-time Subscription to Menu, Orders & Restaurant Updates scoped to this restaurant
   useEffect(() => {
     if (!restaurant?.id) return;
+
     const unsubDishes = realtimeManager.subscribeToDishes((liveDishes) => {
       setDishes(liveDishes);
     }, restaurant.id);
@@ -111,11 +116,81 @@ export const PublicMenu: React.FC = () => {
       setRestaurant(liveRest);
     }, restaurant.id);
 
+    const unsubOrders = realtimeManager.subscribeToOrders((liveOrders) => {
+      const myTableOrders = liveOrders.filter(
+        (o) => o.tableNumber.toLowerCase() === tableNumber.toLowerCase()
+      );
+      setSubmittedOrders(myTableOrders);
+    }, restaurant.id);
+
     return () => {
       unsubDishes();
       unsubRestaurant();
+      unsubOrders();
     };
-  }, [restaurant?.id]);
+  }, [restaurant?.id, tableNumber]);
+
+  // Cart Helper Logic
+  const getItemCartQty = (dishId: string) => {
+    return cartItems.find((i) => i.dish.id === dishId)?.quantity || 0;
+  };
+
+  const handleAddToCart = (dish: Dish, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCartItems((prev) => {
+      const existing = prev.find((i) => i.dish.id === dish.id);
+      if (existing) {
+        return prev.map((i) => i.dish.id === dish.id ? { ...i, quantity: i.quantity + 1 } : i);
+      }
+      return [...prev, { dish, quantity: 1 }];
+    });
+  };
+
+  const handleUpdateCartQuantity = (dishId: string, delta: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setCartItems((prev) => {
+      return prev.map((i) => {
+        if (i.dish.id === dishId) {
+          const nextQty = i.quantity + delta;
+          return nextQty > 0 ? { ...i, quantity: nextQty } : null;
+        }
+        return i;
+      }).filter(Boolean) as CartItem[];
+    });
+  };
+
+  const handleUpdateCartNotes = (dishId: string, notes: string) => {
+    setCartItems((prev) => prev.map((i) => i.dish.id === dishId ? { ...i, notes } : i));
+  };
+
+  const handleClearCart = () => {
+    setCartItems([]);
+  };
+
+  const handleCartSubmitOrder = async (generalNote: string) => {
+    if (cartItems.length === 0) return;
+
+    const orderItems = cartItems.map((i) => ({
+      dishId: i.dish.id,
+      dishName: i.dish.name,
+      price: calculateDiscountedPrice(i.dish.price),
+      quantity: i.quantity,
+      notes: i.notes || '',
+    }));
+
+    const rawSum = cartItems.reduce((acc, i) => acc + i.dish.price * i.quantity, 0);
+    const totalSum = calculateDiscountedPrice(rawSum);
+
+    await realtimeManager.submitTableOrder({
+      restaurantId: restaurant.id,
+      tableNumber: tableNumber,
+      items: orderItems,
+      totalAmount: totalSum,
+      note: generalNote,
+    }, restaurant.id);
+
+    setCartItems([]);
+  };
 
   const handleApplyCouponCode = (code: string) => {
     const cleanCode = code.trim().toUpperCase();
@@ -549,17 +624,51 @@ export const PublicMenu: React.FC = () => {
                       <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
                         {dish.description}
                       </p>
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        {!dish.isAvailable && (
-                          <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-bold">
-                            Esaurito
-                          </span>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {!dish.isAvailable && (
+                            <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-bold">
+                              Esaurito
+                            </span>
+                          )}
+                          {dish.dietary?.map((diet, idx) => (
+                            <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium">
+                              {diet}
+                            </span>
+                          ))}
+                        </div>
+
+                        {/* Add to Cart button when Table Ordering is enabled */}
+                        {restaurant.tableOrderingEnabled && dish.isAvailable && (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            {getItemCartQty(dish.id) > 0 ? (
+                              <div className="flex items-center gap-2 bg-amber-500 text-white rounded-xl px-2.5 py-1 shadow-md font-bold text-xs">
+                                <button 
+                                  onClick={(e) => handleUpdateCartQuantity(dish.id, -1, e)} 
+                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="px-1 text-xs font-black">{getItemCartQty(dish.id)}</span>
+                                <button 
+                                  onClick={(e) => handleUpdateCartQuantity(dish.id, 1, e)} 
+                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={(e) => handleAddToCart(dish, e)}
+                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                                <span>Aggiungi</span>
+                              </button>
+                            )}
+                          </div>
                         )}
-                        {dish.dietary?.map((diet, idx) => (
-                          <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium">
-                            {diet}
-                          </span>
-                        ))}
                       </div>
                     </div>
                   </div>
@@ -575,13 +684,27 @@ export const PublicMenu: React.FC = () => {
       <div className="fixed bottom-4 left-3 right-3 z-40 max-w-xl mx-auto">
         <div className="bg-zinc-900/95 dark:bg-zinc-900/95 backdrop-blur-xl text-white px-3 py-2.5 rounded-2xl shadow-2xl border border-white/10 flex items-center justify-between gap-2">
           
+          {/* Button: Order Cart (When Table Ordering Enabled) */}
+          {restaurant.tableOrderingEnabled && (
+            <button
+              onClick={() => setIsCartModalOpen(true)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-emerald-500/25 transition-all active:scale-95 relative cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              <span className="truncate">Carrello ({cartItems.reduce((acc, i) => acc + i.quantity, 0)})</span>
+              {cartItems.length > 0 && (
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 absolute top-1.5 right-1.5 animate-ping" />
+              )}
+            </button>
+          )}
+
           {/* Button 1: Chiama Cameriere (Direct for scanned table) */}
           <button
             onClick={handleOpenCallWaiter}
             className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-amber-500/25 transition-all active:scale-95"
           >
             <Bell className="w-4 h-4 animate-bounce" />
-            <span className="truncate">Chiama Cameriere ({tableNumber})</span>
+            <span className="truncate">Chiama ({tableNumber})</span>
           </button>
 
           {/* Button 2: Chiedi il Conto (Direct for scanned table) */}
@@ -590,7 +713,7 @@ export const PublicMenu: React.FC = () => {
             className="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-black text-xs sm:text-sm shadow-lg shadow-purple-600/25 transition-all active:scale-95"
           >
             <Receipt className="w-4 h-4" />
-            <span className="truncate">Chiedi Conto ({tableNumber})</span>
+            <span className="truncate">Conto ({tableNumber})</span>
           </button>
 
           {/* Button 3: AI Sommelier */}
@@ -628,6 +751,20 @@ export const PublicMenu: React.FC = () => {
         tableNumber={tableNumber}
         isTableLocked={true}
         initialType={waiterModalType}
+      />
+
+      <OrderCartModal
+        isOpen={isCartModalOpen}
+        onClose={() => setIsCartModalOpen(false)}
+        tableNumber={tableNumber}
+        restaurant={restaurant}
+        cartItems={cartItems}
+        appliedDiscountPercent={appliedDiscountPercent}
+        onUpdateQuantity={handleUpdateCartQuantity}
+        onUpdateItemNotes={handleUpdateCartNotes}
+        onClearCart={handleClearCart}
+        onSubmitOrder={handleCartSubmitOrder}
+        submittedOrders={submittedOrders}
       />
 
       <ReviewModal

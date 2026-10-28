@@ -307,3 +307,32 @@ export const saveStoredReviews = (reviews: ReviewItem[]) => {
   localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(reviews));
   window.dispatchEvent(new Event('menulab_reviews_updated'));
 };
+
+export const getStoredTableOrders = (restaurantId?: string): import('../types').TableOrder[] => {
+  try {
+    const targetRestId = restaurantId || localStorage.getItem(STORAGE_KEYS.CURRENT_RESTAURANT_ID) || 'bellanapoli';
+    const data = localStorage.getItem(`menulab_table_orders_${targetRestId}`);
+    return data ? JSON.parse(data) : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveStoredTableOrders = (orders: import('../types').TableOrder[], restaurantId?: string) => {
+  const targetRestId = restaurantId || localStorage.getItem(STORAGE_KEYS.CURRENT_RESTAURANT_ID) || 'bellanapoli';
+  localStorage.setItem(`menulab_table_orders_${targetRestId}`, JSON.stringify(orders));
+  window.dispatchEvent(new Event('menulab_orders_updated'));
+};
+
+export const resetTableOrdersForTable = (tableNumber: string, restaurantId?: string) => {
+  const targetRestId = restaurantId || localStorage.getItem(STORAGE_KEYS.CURRENT_RESTAURANT_ID) || 'bellanapoli';
+  const existingOrders = getStoredTableOrders(targetRestId);
+  const filteredOrders = existingOrders.filter((o) => o.tableNumber.toLowerCase() !== tableNumber.toLowerCase());
+  saveStoredTableOrders(filteredOrders, targetRestId);
+
+  // Also clear resolved waiter calls for that table
+  const existingCalls = getStoredWaiterCalls(targetRestId);
+  const filteredCalls = existingCalls.filter((c) => c.tableNumber.toLowerCase() !== tableNumber.toLowerCase());
+  saveStoredWaiterCalls(filteredCalls, targetRestId);
+};
+

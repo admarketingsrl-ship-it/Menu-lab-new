@@ -1,15 +1,20 @@
-import { Dish, RestaurantInfo, WaiterCall } from '../types';
+import { Dish, RestaurantInfo, WaiterCall, TableOrder } from '../types';
 import { 
   getStoredDishes, saveStoredDishes, 
   getStoredWaiterCalls, saveStoredWaiterCalls, 
-  getStoredRestaurant, saveStoredRestaurant 
+  getStoredRestaurant, saveStoredRestaurant,
+  getStoredTableOrders, saveStoredTableOrders,
+  resetTableOrdersForTable
 } from './store';
 import { db } from './firebase';
-import { collection, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 type RealtimeMessageType = 
   | { type: 'NEW_CALL'; restaurantId: string; call: WaiterCall }
   | { type: 'RESOLVE_CALL'; restaurantId: string; callId: string }
+  | { type: 'NEW_ORDER'; restaurantId: string; order: TableOrder }
+  | { type: 'UPDATE_ORDER'; restaurantId: string; order: TableOrder }
+  | { type: 'RESET_TABLE'; restaurantId: string; tableNumber: string }
   | { type: 'DISHES_UPDATED'; restaurantId: string; dishes: Dish[] }
   | { type: 'RESTAURANT_UPDATED'; restaurantId: string; restaurant: RestaurantInfo };
 
@@ -21,10 +26,12 @@ interface ScopedListener<T> {
 class RealtimeManager {
   private channel: BroadcastChannel | null = null;
   private callsListeners: Set<ScopedListener<(calls: WaiterCall[], newCall?: WaiterCall) => void>> = new Set();
+  private ordersListeners: Set<ScopedListener<(orders: TableOrder[], newOrder?: TableOrder) => void>> = new Set();
   private dishesListeners: Set<ScopedListener<(dishes: Dish[]) => void>> = new Set();
   private restaurantListeners: Set<ScopedListener<(restaurant: RestaurantInfo) => void>> = new Set();
   
   private activeFirestoreCallsListeners = new Map<string, () => void>();
+  private activeFirestoreOrdersListeners = new Map<string, () => void>();
   private activeFirestoreDishesListeners = new Map<string, () => void>();
   private isInitialized = false;
 
@@ -39,7 +46,7 @@ class RealtimeManager {
     // 1. Setup BroadcastChannel for instant same-browser cross-tab sync
     try {
       if ('BroadcastChannel' in window) {
-        this.channel = new BroadcastChannel('menulab_realtime_bus_v3');
+        this.channel = new BroadcastChannel('menulab_realtime_bus_v4');
         this.channel.onmessage = (event: MessageEvent<RealtimeMessageType>) => {
           this.handleIncomingMessage(event.data);
         };
@@ -54,6 +61,10 @@ class RealtimeManager {
         const restId = e.key.replace('menulab_waiter_calls_', '');
         const calls = getStoredWaiterCalls(restId);
         this.notifyCallsListeners(calls, undefined, restId);
+      } else if (e.key?.startsWith('menulab_table_orders_')) {
+        const restId = e.key.replace('menulab_table_orders_', '');
+        const orders = getStoredTableOrders(restId);
+        this.notifyOrdersListeners(orders, undefined, restId);
       } else if (e.key?.startsWith('menulab_dishes_')) {
         const restId = e.key.replace('menulab_dishes_', '');
         const dishes = getStoredDishes(restId);
@@ -68,6 +79,7 @@ class RealtimeManager {
     const currentRest = getStoredRestaurant();
     if (currentRest?.id) {
       this.ensureFirestoreCallsListener(currentRest.id);
+      this.ensureFirestoreOrdersListener(currentRest.id);
       this.ensureFirestoreDishesListener(currentRest.id);
     }
   }
@@ -105,6 +117,39 @@ class RealtimeManager {
       this.activeFirestoreCallsListeners.set(restIdLower, unsub);
     } catch (e) {
       console.warn(`Error setting up Firestore calls listener for ${restIdLower}:`, e);
+    }
+  }
+
+  /**
+   * Ensure a dynamic Firestore live listener is active for a specific restaurant's table orders
+   */
+  public ensureFirestoreOrdersListener(restaurantId: string) {
+    if (!db || !restaurantId || this.activeFirestoreOrdersListeners.has(restaurantId.toLowerCase())) return;
+
+    const restIdLower = restaurantId.toLowerCase();
+    try {
+      const ordersCol = collection(db, 'restaurants', restIdLower, 'tableOrders');
+      const unsub = onSnapshot(ordersCol, (snapshot) => {
+        const remoteOrders: TableOrder[] = [];
+        snapshot.forEach((d) => {
+          remoteOrders.push(d.data() as TableOrder);
+        });
+        remoteOrders.sort((a, b) => b.timestamp - a.timestamp);
+
+        const localOrders = getStoredTableOrders(restIdLower);
+        const localIds = new Set(localOrders.map((o) => o.id));
+
+        const brandNew = remoteOrders.find((o) => !localIds.has(o.id) && o.status === 'pending');
+
+        saveStoredTableOrders(remoteOrders, restIdLower);
+        this.notifyOrdersListeners(remoteOrders, brandNew, restIdLower);
+      }, (err) => {
+        console.warn(`Firestore orders listener error for ${restIdLower}:`, err.message);
+      });
+
+      this.activeFirestoreOrdersListeners.set(restIdLower, unsub);
+    } catch (e) {
+      console.warn(`Error setting up Firestore orders listener for ${restIdLower}:`, e);
     }
   }
 
@@ -162,6 +207,38 @@ class RealtimeManager {
         break;
       }
 
+      case 'NEW_ORDER': {
+        const restId = msg.restaurantId.toLowerCase();
+        const orders = getStoredTableOrders(restId);
+        if (!orders.some((o) => o.id === msg.order.id)) {
+          const updated = [msg.order, ...orders];
+          saveStoredTableOrders(updated, restId);
+          this.notifyOrdersListeners(updated, msg.order, restId);
+        } else {
+          this.notifyOrdersListeners(orders, msg.order, restId);
+        }
+        break;
+      }
+
+      case 'UPDATE_ORDER': {
+        const restId = msg.restaurantId.toLowerCase();
+        const orders = getStoredTableOrders(restId);
+        const updated = orders.map((o) => o.id === msg.order.id ? msg.order : o);
+        saveStoredTableOrders(updated, restId);
+        this.notifyOrdersListeners(updated, undefined, restId);
+        break;
+      }
+
+      case 'RESET_TABLE': {
+        const restId = msg.restaurantId.toLowerCase();
+        resetTableOrdersForTable(msg.tableNumber, restId);
+        const updatedOrders = getStoredTableOrders(restId);
+        const updatedCalls = getStoredWaiterCalls(restId);
+        this.notifyOrdersListeners(updatedOrders, undefined, restId);
+        this.notifyCallsListeners(updatedCalls, undefined, restId);
+        break;
+      }
+
       case 'DISHES_UPDATED': {
         const restId = msg.restaurantId.toLowerCase();
         saveStoredDishes(msg.dishes, restId);
@@ -182,6 +259,14 @@ class RealtimeManager {
     this.callsListeners.forEach((listener) => {
       if (!listener.restaurantId || !restaurantId || listener.restaurantId.toLowerCase() === restaurantId.toLowerCase()) {
         listener.fn(calls, newCall);
+      }
+    });
+  }
+
+  private notifyOrdersListeners(orders: TableOrder[], newOrder?: TableOrder, restaurantId?: string) {
+    this.ordersListeners.forEach((listener) => {
+      if (!listener.restaurantId || !restaurantId || listener.restaurantId.toLowerCase() === restaurantId.toLowerCase()) {
+        listener.fn(orders, newOrder);
       }
     });
   }
@@ -218,16 +303,39 @@ class RealtimeManager {
     };
     this.callsListeners.add(item);
 
-    // Automatically initialize Firestore live listener for this restaurant
     if (targetRestId) {
       this.ensureFirestoreCallsListener(targetRestId);
     }
 
-    // Deliver initial cached calls
     listener(getStoredWaiterCalls(targetRestId));
 
     return () => {
       this.callsListeners.delete(item);
+    };
+  }
+
+  /**
+   * Subscribe to live table orders for a specific restaurant.
+   */
+  public subscribeToOrders(
+    listener: (orders: TableOrder[], newOrder?: TableOrder) => void,
+    restaurantId?: string
+  ): () => void {
+    const targetRestId = restaurantId || getStoredRestaurant().id;
+    const item: ScopedListener<(orders: TableOrder[], newOrder?: TableOrder) => void> = {
+      restaurantId: targetRestId,
+      fn: listener,
+    };
+    this.ordersListeners.add(item);
+
+    if (targetRestId) {
+      this.ensureFirestoreOrdersListener(targetRestId);
+    }
+
+    listener(getStoredTableOrders(targetRestId));
+
+    return () => {
+      this.ordersListeners.delete(item);
     };
   }
 
@@ -276,7 +384,7 @@ class RealtimeManager {
   }
 
   /**
-   * Send a waiter call or bill request from the customer's phone/device.
+   * Send a waiter call or bill request from customer device.
    */
   public async submitWaiterCall(
     callData: Omit<WaiterCall, 'id' | 'timestamp' | 'status'>,
@@ -291,27 +399,22 @@ class RealtimeManager {
       status: 'pending',
     };
 
-    // 1. Update local storage immediately
     const existing = getStoredWaiterCalls(restId);
     const updated = [newCall, ...existing];
     saveStoredWaiterCalls(updated, restId);
 
-    // 2. Broadcast via BroadcastChannel (for same browser tabs)
     try {
       this.channel?.postMessage({ type: 'NEW_CALL', restaurantId: restId, call: newCall });
     } catch (e) {
       console.warn('Error posting to BroadcastChannel:', e);
     }
 
-    // 3. Dispatch to local listeners
     this.notifyCallsListeners(updated, newCall, restId);
 
-    // 4. Persist to Firestore in real time for cross-device notification (phone -> manager screen)
     try {
       if (db) {
         const docRef = doc(db, 'restaurants', restId, 'waiterCalls', newCall.id);
         await setDoc(docRef, newCall);
-        console.log(`[RealtimeManager] Waiter call ${newCall.id} synced to Firestore for restaurant ${restId}`);
       }
     } catch (e) {
       console.warn('Could not sync call to Firestore:', e);
@@ -321,23 +424,125 @@ class RealtimeManager {
   }
 
   /**
+   * Submit a new Table Order from customer device.
+   */
+  public async submitTableOrder(
+    orderData: Omit<TableOrder, 'id' | 'timestamp' | 'status'>,
+    restaurantId?: string
+  ): Promise<TableOrder> {
+    const restId = (restaurantId || orderData.restaurantId || getStoredRestaurant().id).toLowerCase();
+    const newOrder: TableOrder = {
+      ...orderData,
+      restaurantId: restId,
+      id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: Date.now(),
+      status: 'pending',
+    };
+
+    const existing = getStoredTableOrders(restId);
+    const updated = [newOrder, ...existing];
+    saveStoredTableOrders(updated, restId);
+
+    try {
+      this.channel?.postMessage({ type: 'NEW_ORDER', restaurantId: restId, order: newOrder });
+    } catch (e) {
+      console.warn('Error posting to BroadcastChannel:', e);
+    }
+
+    this.notifyOrdersListeners(updated, newOrder, restId);
+
+    try {
+      if (db) {
+        const docRef = doc(db, 'restaurants', restId, 'tableOrders', newOrder.id);
+        await setDoc(docRef, newOrder);
+      }
+    } catch (e) {
+      console.warn('Could not sync order to Firestore:', e);
+    }
+
+    return newOrder;
+  }
+
+  /**
+   * Update table order status (e.g. accepted, completed) from manager dashboard.
+   */
+  public async updateTableOrderStatus(
+    orderId: string, 
+    status: TableOrder['status'], 
+    restaurantId?: string
+  ) {
+    const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
+    const existing = getStoredTableOrders(restId);
+    const updated = existing.map((o) => o.id === orderId ? { ...o, status } : o);
+    saveStoredTableOrders(updated, restId);
+
+    const match = updated.find((o) => o.id === orderId);
+    if (match) {
+      try {
+        this.channel?.postMessage({ type: 'UPDATE_ORDER', restaurantId: restId, order: match });
+      } catch {}
+    }
+
+    this.notifyOrdersListeners(updated, undefined, restId);
+
+    try {
+      if (db) {
+        const docRef = doc(db, 'restaurants', restId, 'tableOrders', orderId);
+        await updateDoc(docRef, { status });
+      }
+    } catch (e) {
+      console.warn('Could not update order status in Firestore:', e);
+    }
+  }
+
+  /**
+   * Reset / Clear table orders and calls when manager closes table bill.
+   */
+  public async resetTable(tableNumber: string, restaurantId?: string) {
+    const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
+    resetTableOrdersForTable(tableNumber, restId);
+
+    const updatedOrders = getStoredTableOrders(restId);
+    const updatedCalls = getStoredWaiterCalls(restId);
+
+    try {
+      this.channel?.postMessage({ type: 'RESET_TABLE', restaurantId: restId, tableNumber });
+    } catch {}
+
+    this.notifyOrdersListeners(updatedOrders, undefined, restId);
+    this.notifyCallsListeners(updatedCalls, undefined, restId);
+
+    // Also clear from Firestore for that table
+    try {
+      if (db) {
+        const existingOrders = getStoredTableOrders(restId);
+        for (const order of existingOrders) {
+          if (order.tableNumber.toLowerCase() === tableNumber.toLowerCase()) {
+            const docRef = doc(db, 'restaurants', restId, 'tableOrders', order.id);
+            await deleteDoc(docRef).catch(() => {});
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not reset table in Firestore:', e);
+    }
+  }
+
+  /**
    * Mark a waiter call as resolved from the manager dashboard.
    */
   public async resolveWaiterCall(callId: string, restaurantId?: string) {
     const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
-    // 1. Update local storage
     const existing = getStoredWaiterCalls(restId);
     const updated = existing.map((c) => c.id === callId ? { ...c, status: 'resolved' as const } : c);
     saveStoredWaiterCalls(updated, restId);
 
-    // 2. Broadcast
     try {
       this.channel?.postMessage({ type: 'RESOLVE_CALL', restaurantId: restId, callId });
     } catch {}
 
     this.notifyCallsListeners(updated, undefined, restId);
 
-    // 3. Firestore update
     try {
       if (db) {
         const docRef = doc(db, 'restaurants', restId, 'waiterCalls', callId);
@@ -353,17 +558,14 @@ class RealtimeManager {
    */
   public async broadcastDishes(dishes: Dish[], restaurantId?: string) {
     const restId = (restaurantId || getStoredRestaurant().id).toLowerCase();
-    // 1. Save local
     saveStoredDishes(dishes, restId);
 
-    // 2. Broadcast
     try {
       this.channel?.postMessage({ type: 'DISHES_UPDATED', restaurantId: restId, dishes });
     } catch {}
 
     this.notifyDishesListeners(dishes, restId);
 
-    // 3. Firestore sync in background
     try {
       if (db) {
         for (const dish of dishes) {
@@ -377,7 +579,7 @@ class RealtimeManager {
   }
 
   /**
-   * Broadcast restaurant details (e.g. promo banners, tables)
+   * Broadcast restaurant details (e.g. promo banners, table ordering toggle)
    */
   public broadcastRestaurant(restaurant: RestaurantInfo) {
     const restId = restaurant.id.toLowerCase();

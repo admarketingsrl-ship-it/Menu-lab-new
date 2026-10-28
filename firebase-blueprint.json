@@ -15,6 +15,20 @@
       },
       "required": ["id", "restaurantId", "tableNumber", "type", "timestamp", "status"]
     },
+    "TableOrder": {
+      "title": "TableOrder",
+      "description": "Order submitted directly from customer table QR code",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "restaurantId": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "totalAmount": { "type": "number" },
+        "timestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "completed", "cancelled"] }
+      },
+      "required": ["id", "restaurantId", "tableNumber", "totalAmount", "timestamp", "status"]
+    },
     "Dish": {
       "title": "Dish",
       "description": "Menu dish item",
@@ -36,6 +50,10 @@
     "/restaurants/{restaurantId}/waiterCalls/{callId}": {
       "schema": "WaiterCall",
       "description": "Real-time waiter calls and bill requests for a specific restaurant"
+    },
+    "/restaurants/{restaurantId}/tableOrders/{orderId}": {
+      "schema": "TableOrder",
+      "description": "Real-time table orders submitted from QR code"
     },
     "/restaurants/{restaurantId}/dishes/{dishId}": {
       "schema": "Dish",

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   ShieldAlert, Building2, Calendar, DollarSign, Plus, Edit3, CheckCircle, 
   AlertTriangle, ArrowLeft, KeyRound, Copy, Eye, EyeOff, Lock, Unlock, 
-  Trash2, RefreshCw, Clock, Check, AlertCircle, Sparkles, ExternalLink, QrCode
+  Trash2, RefreshCw, Clock, Check, AlertCircle, Sparkles, ExternalLink, QrCode, ShoppingBag
 } from 'lucide-react';
 import { RestaurantInfo, SubscriptionInfo } from '../types';
 import { 
@@ -11,6 +11,7 @@ import {
   saveStoredDishes, saveStoredCategories
 } from '../services/store';
 import { createStarterDishesForRestaurant, DEFAULT_STARTER_CATEGORIES } from '../data/initialData';
+import { realtimeManager } from '../services/realtime';
 
 interface SuperAdminDashboardProps {
   onBackToApp: () => void;
@@ -94,6 +95,30 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     setRestaurants(updated);
     saveStoredRestaurantsList(updated);
     showToast('Stato accesso e abbonamento aggiornato!');
+  };
+
+  // Toggle Table Ordering Mode
+  const handleToggleTableOrdering = (restId: string) => {
+    const updated = restaurants.map(r => {
+      if (r.id === restId) {
+        const nextVal = !r.tableOrderingEnabled;
+        const updatedRest = {
+          ...r,
+          tableOrderingEnabled: nextVal,
+          subscription: {
+            ...r.subscription!,
+            tableOrderingEnabled: nextVal,
+          }
+        };
+        realtimeManager.broadcastRestaurant(updatedRest);
+        return updatedRest;
+      }
+      return r;
+    });
+
+    setRestaurants(updated);
+    saveStoredRestaurantsList(updated);
+    showToast('Modalità ordine dal tavolo aggiornata per il locale!');
   };
 
   // Quick +30 days extension
@@ -503,6 +528,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                   <th className="p-4">Piano & Canone</th>
                   <th className="p-4">Data Fine Abbonamento</th>
                   <th className="p-4 text-center">Stato Portale</th>
+                  <th className="p-4 text-center">Ordine dal Tavolo</th>
                   <th className="p-4 text-right">Azioni Agenzia</th>
                 </tr>
               </thead>
@@ -616,6 +642,22 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                         >
                           {!isExpired ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
                           {!isExpired ? 'Accesso Attivo' : 'Accesso Bloccato'}
+                        </button>
+                      </td>
+
+                      {/* Ordine dal Tavolo (Toggle) */}
+                      <td className="p-4 text-center">
+                        <button
+                          onClick={() => handleToggleTableOrdering(rest.id)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                            rest.tableOrderingEnabled
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500/30'
+                              : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:bg-zinc-700'
+                          }`}
+                          title="Sblocca l'invio ordini diretto dal QR code tavolo per questo cliente"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          {rest.tableOrderingEnabled ? 'Sbloccato' : 'Disattivato'}
                         </button>
                       </td>
 
