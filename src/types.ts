@@ -61,6 +61,7 @@ export interface RestaurantInfo {
   subscription?: SubscriptionInfo;
   tables?: string[]; // e.g. ['Tavolo 1', 'Tavolo 2', ...]
   tableOrderingEnabled?: boolean; // Feature flag for ordering directly from table QR
+  menuTheme?: 'standard' | 'casual' | 'luxury'; // Visual theme for customer menu layout
 }
 
 export interface WaiterCall {

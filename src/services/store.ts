@@ -121,6 +121,7 @@ export const getStoredRestaurantsList = (): RestaurantInfo[] => {
         ...r,
         adminEmail: r.adminEmail || match?.adminEmail || `admin@${r.id}.it`,
         adminPassword: r.adminPassword || match?.adminPassword || 'password123',
+        menuTheme: r.menuTheme || match?.menuTheme || 'standard',
         subscription: r.subscription || match?.subscription || {
           planName: 'Abbonamento Mensile',
           status: 'Attivo',
@@ -179,6 +180,7 @@ export const getStoredRestaurant = (restaurantId?: string): RestaurantInfo => {
         googleReviewUrl: '',
         tripAdvisorUrl: '',
         tables: ['Tavolo 1'],
+        menuTheme: 'standard',
         subscription: {
           planName: 'Abbonamento Mensile Pro',
           monthlyFee: 49,

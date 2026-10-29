@@ -174,6 +174,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     const endDate = formData.get('endDate') as string || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const address = (formData.get('address') as string).trim() || 'Via Roma 1, Centro';
     const phone = (formData.get('phone') as string).trim() || '+39 081 000 0000';
+    const menuTheme = (formData.get('menuTheme') as 'standard' | 'casual' | 'luxury') || 'standard';
 
     const newRest: RestaurantInfo = {
       id,
@@ -192,6 +193,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
       googleReviewUrl: '',
       tripAdvisorUrl: '',
       tables: ['Tavolo 1'],
+      menuTheme,
       subscription: {
         planName,
         monthlyFee,
@@ -235,13 +237,15 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     const monthlyFee = Number(formData.get('monthlyFee')) || 49;
     const endDate = formData.get('endDate') as string;
     const status = formData.get('status') as 'Attivo' | 'In Scadenza' | 'Scaduto';
+    const menuTheme = (formData.get('menuTheme') as 'standard' | 'casual' | 'luxury') || 'standard';
 
     const updated = restaurants.map(r => {
       if (r.id === editingClient.id) {
-        return {
+        const updatedRest = {
           ...r,
           adminEmail,
           adminPassword,
+          menuTheme,
           subscription: {
             planName,
             monthlyFee,
@@ -249,6 +253,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
             status,
           }
         };
+        realtimeManager.broadcastRestaurant(updatedRest);
+        return updatedRest;
       }
       return r;
     });
@@ -552,7 +558,24 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                           <div>
                             <p className="font-bold text-white text-sm">{rest.name}</p>
                             <p className="text-[11px] text-zinc-400 line-clamp-1">{rest.address}</p>
-                            <span className="text-[10px] text-zinc-500 font-mono">ID: {rest.id}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-zinc-500 font-mono">ID: {rest.id}</span>
+                              {rest.menuTheme === 'casual' && (
+                                <span className="px-1.5 py-0.2 rounded bg-red-500/20 text-red-400 text-[9px] font-bold border border-red-500/30">
+                                  🍕 Casual
+                                </span>
+                              )}
+                              {rest.menuTheme === 'luxury' && (
+                                <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 text-[9px] font-bold border border-amber-500/30 font-serif">
+                                  ✨ Lusso
+                                </span>
+                              )}
+                              {(!rest.menuTheme || rest.menuTheme === 'standard') && (
+                                <span className="px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-400 text-[9px] font-bold border border-zinc-700">
+                                  Standard
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </td>
@@ -814,6 +837,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                 </div>
               </div>
 
+              {/* Layout Grafico Menu per il Cliente */}
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+                <p className="text-xs font-black uppercase text-amber-400 tracking-wider">Layout Grafico del Menu Digitale</p>
+                <select
+                  name="menuTheme"
+                  defaultValue="standard"
+                  className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                >
+                  <option value="standard">Standard (Design Pulito, Moderno & Neutro)</option>
+                  <option value="casual">Casual / Pizzeria & Paninoteca (Commerciale, Pop & Colorato)</option>
+                  <option value="luxury">Ristorante di Lusso (Minimalista, Dark & Dettagli Oro)</option>
+                </select>
+                <p className="text-[11px] text-zinc-500">I tre layout adattano i colori, i caratteri e le schede dei piatti allo stile del locale.</p>
+              </div>
+
               {/* Abbonamento Mensile */}
               <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
                 <p className="text-xs font-black uppercase text-amber-400 tracking-wider">Configurazione Abbonamento</p>
@@ -955,6 +993,19 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                     defaultValue={editingClient.subscription?.endDate || '2026-12-31'}
                     className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
                   />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-zinc-400">Layout Menu Digitale Cliente</label>
+                  <select
+                    name="menuTheme"
+                    defaultValue={editingClient.menuTheme || 'standard'}
+                    className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="standard">Standard (Design Pulito, Moderno & Neutro)</option>
+                    <option value="casual">Casual / Pizzeria & Paninoteca (Commerciale, Pop & Colorato)</option>
+                    <option value="luxury">Ristorante di Lusso (Minimalista, Dark & Dettagli Oro)</option>
+                  </select>
                 </div>
 
                 <div className="space-y-1">

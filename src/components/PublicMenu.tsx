@@ -287,8 +287,17 @@ export const PublicMenu: React.FC = () => {
   };
 
 
+  const currentTheme = restaurant.menuTheme || 'standard';
+
+  // Dynamic Theme Styling Classes
+  const getContainerBg = () => {
+    if (currentTheme === 'casual') return 'min-h-screen bg-orange-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-36 overflow-x-hidden font-sans';
+    if (currentTheme === 'luxury') return 'min-h-screen bg-zinc-950 text-amber-50 pb-36 overflow-x-hidden font-serif';
+    return 'min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-36 overflow-x-hidden';
+  };
+
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-36 overflow-x-hidden">
+    <div className={getContainerBg()}>
       
       {/* Toast Notification for Share */}
       {shareToast && (
@@ -323,7 +332,9 @@ export const PublicMenu: React.FC = () => {
         <div className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 flex items-center justify-between gap-1.5 sm:gap-2">
           
           {/* Table Badge strictly derived from Scanned QR Code - No dropdown or manual selection permitted */}
-          <div className="flex items-center gap-1.5 sm:gap-2 bg-black/80 backdrop-blur-md px-2.5 sm:px-3.5 py-1.5 rounded-2xl border border-amber-500/40 text-white text-xs font-semibold shadow-lg min-w-0">
+          <div className={`flex items-center gap-1.5 sm:gap-2 backdrop-blur-md px-2.5 sm:px-3.5 py-1.5 rounded-2xl border text-white text-xs font-semibold shadow-lg min-w-0 ${
+            currentTheme === 'luxury' ? 'bg-zinc-950/90 border-amber-500/50' : 'bg-black/80 border-amber-500/40'
+          }`}>
             <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
             <span className="text-zinc-300 hidden xs:inline">Tavolo:</span>
             <span className="text-amber-400 font-black truncate">{tableNumber}</span>
@@ -335,7 +346,13 @@ export const PublicMenu: React.FC = () => {
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={() => setIsAiModalOpen(true)}
-              className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-600 text-white px-2.5 sm:px-3.5 py-1.5 rounded-2xl text-[11px] sm:text-xs font-bold shadow-lg shadow-amber-500/25 hover:opacity-95 transition-all animate-pulse"
+              className={`flex items-center gap-1 text-white px-2.5 sm:px-3.5 py-1.5 rounded-2xl text-[11px] sm:text-xs font-bold shadow-lg transition-all animate-pulse ${
+                currentTheme === 'casual' 
+                  ? 'bg-gradient-to-r from-red-500 to-orange-500 shadow-red-500/25' 
+                  : currentTheme === 'luxury'
+                  ? 'bg-gradient-to-r from-amber-300 via-amber-400 to-amber-500 text-zinc-950 font-black shadow-amber-500/25'
+                  : 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-amber-500/25'
+              }`}
               title="AI Sommelier"
             >
               <Sparkles className="w-3.5 h-3.5 flex-shrink-0" />
@@ -363,10 +380,28 @@ export const PublicMenu: React.FC = () => {
           <img
             src={restaurant.logo}
             alt="Logo"
-            className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-4 border-white dark:border-zinc-900 shadow-2xl flex-shrink-0"
+            className={`w-20 h-20 sm:w-24 sm:h-24 rounded-2xl object-cover border-4 shadow-2xl flex-shrink-0 ${
+              currentTheme === 'luxury' ? 'border-amber-500/40' : 'border-white dark:border-zinc-900'
+            }`}
           />
           <div className="text-white">
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight leading-tight">{restaurant.name}</h1>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className={`text-2xl sm:text-4xl font-black tracking-tight leading-tight ${
+                currentTheme === 'luxury' ? 'font-serif tracking-widest bg-gradient-to-r from-amber-100 via-amber-300 to-amber-500 bg-clip-text text-transparent' : ''
+              }`}>
+                {restaurant.name}
+              </h1>
+              {currentTheme === 'casual' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-red-500 text-white shadow-md uppercase tracking-wider">
+                  🍕 Pizzeria & Food
+                </span>
+              )}
+              {currentTheme === 'luxury' && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 uppercase tracking-widest font-serif shadow-md">
+                  Luxury Fine Dining
+                </span>
+              )}
+            </div>
             <p className="text-xs sm:text-sm text-zinc-300 mt-1 line-clamp-1">{restaurant.tagline}</p>
             <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-zinc-300">
               <span className="flex items-center gap-1">
@@ -385,7 +420,13 @@ export const PublicMenu: React.FC = () => {
       {/* Promotional Banner */}
       {restaurant.activeBanner?.active && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20 mb-8">
-          <div className="bg-gradient-to-r from-amber-500 to-orange-600 rounded-3xl p-5 sm:p-6 text-white shadow-xl flex items-center justify-between gap-4">
+          <div className={`rounded-3xl p-5 sm:p-6 text-white shadow-xl flex items-center justify-between gap-4 ${
+            currentTheme === 'casual'
+              ? 'bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 border-2 border-white/20'
+              : currentTheme === 'luxury'
+              ? 'bg-zinc-900 border border-amber-500/40 text-amber-100'
+              : 'bg-gradient-to-r from-amber-500 to-orange-600'
+          }`}>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-6 h-6 text-white" />
@@ -404,9 +445,15 @@ export const PublicMenu: React.FC = () => {
         
         {/* Table Confirmation Callout for Mobile Scanners */}
         {isTableLocked && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3">
+          <div className={`rounded-2xl p-3 sm:p-4 flex items-center justify-between gap-3 ${
+            currentTheme === 'luxury'
+              ? 'bg-zinc-900/90 border border-amber-500/30'
+              : 'bg-amber-500/10 border border-amber-500/30'
+          }`}>
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black text-xs shadow-sm">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shadow-sm ${
+                currentTheme === 'casual' ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'
+              }`}>
                 {tableNumber.replace(/[^0-9]/g, '') || 'QR'}
               </div>
               <div>
@@ -421,13 +468,15 @@ export const PublicMenu: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleOpenCallWaiter}
-                className="px-3 py-1.5 rounded-xl bg-amber-500 text-white text-xs font-bold hover:bg-amber-600 shadow-sm whitespace-nowrap"
+                className={`px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-sm whitespace-nowrap cursor-pointer ${
+                  currentTheme === 'casual' ? 'bg-red-500 hover:bg-red-600' : 'bg-amber-500 hover:bg-amber-600'
+                }`}
               >
                 Chiama
               </button>
               <button
                 onClick={handleOpenRequestBill}
-                className="px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 shadow-sm whitespace-nowrap"
+                className="px-3 py-1.5 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-700 shadow-sm whitespace-nowrap cursor-pointer"
               >
                 Conto
               </button>
@@ -444,24 +493,34 @@ export const PublicMenu: React.FC = () => {
               placeholder={lang === 'IT' ? 'Cerca un piatto, ingrediente, pizza...' : 'Search dish, ingredient, pizza...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 text-sm font-medium"
+              className={`w-full pl-12 pr-4 py-4 rounded-2xl border text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                currentTheme === 'luxury' 
+                  ? 'bg-zinc-900/90 border-amber-500/20 text-amber-100 placeholder-zinc-500 font-serif' 
+                  : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white'
+              }`}
             />
           </div>
 
-          <div className="flex items-center gap-2 bg-white dark:bg-zinc-900 p-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+          <div className={`flex items-center gap-2 p-2 rounded-2xl border shadow-sm ${
+            currentTheme === 'luxury' 
+              ? 'bg-zinc-900/90 border-amber-500/20' 
+              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
+          }`}>
             <div className="pl-2 text-amber-500">
               <Tag className="w-5 h-5" />
             </div>
             <input
               type="text"
-              placeholder="Codice Coupon (es. BENENVENUTO10)"
+              placeholder="Codice Coupon"
               value={couponInput}
               onChange={(e) => setCouponInput(e.target.value)}
               className="w-full bg-transparent text-xs font-bold text-zinc-900 dark:text-white focus:outline-none uppercase"
             />
             <button
               onClick={() => handleApplyCouponCode(couponInput)}
-              className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold whitespace-nowrap shadow-sm"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shadow-sm cursor-pointer ${
+                currentTheme === 'casual' ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-amber-500 hover:bg-amber-600 text-white'
+              }`}
             >
               Applica
             </button>
@@ -494,56 +553,75 @@ export const PublicMenu: React.FC = () => {
           </div>
         )}
 
-        {/* Dietary Pills */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-          {['Tutti', 'Vegetariano', 'Vegano', 'Senza Glutine', 'Senza Lattosio'].map((diet) => (
-            <button
-              key={diet}
-              onClick={() => setDietaryFilter(diet)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
-                dietaryFilter === diet
-                  ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
-              }`}
-            >
-              {diet}
-            </button>
-          ))}
+        {/* Dietary Pills - WRAPPED WITHOUT HORIZONTAL SCROLLING */}
+        <div className="flex flex-wrap items-center gap-2 pb-2">
+          {['Tutti', 'Vegetariano', 'Vegano', 'Senza Glutine', 'Senza Lattosio'].map((diet) => {
+            const isSelected = dietaryFilter === diet;
+            let activeStyle = 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm';
+            
+            if (currentTheme === 'casual' && isSelected) {
+              activeStyle = 'bg-gradient-to-r from-red-500 to-orange-500 text-white font-extrabold shadow-md border border-red-400';
+            } else if (currentTheme === 'luxury' && isSelected) {
+              activeStyle = 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 text-zinc-950 font-black tracking-widest uppercase shadow-md shadow-amber-500/20';
+            }
+
+            return (
+              <button
+                key={diet}
+                onClick={() => setDietaryFilter(diet)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                  isSelected
+                    ? activeStyle
+                    : currentTheme === 'luxury'
+                    ? 'bg-zinc-900/80 text-amber-200/80 border border-amber-500/20 hover:border-amber-500/40'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                }`}
+              >
+                {diet}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Categories Tab Bar */}
-        <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none">
-          <button
-            onClick={() => setSelectedCategory('Tutti')}
-            className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${
-              selectedCategory === 'Tutti'
-                ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800'
-            }`}
-          >
-            Tutti i Piatti
-          </button>
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-5 py-2.5 rounded-2xl text-sm font-bold whitespace-nowrap transition-all ${
-                selectedCategory === cat
-                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
-                  : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Categories Tab Bar - WRAPPED WITHOUT HORIZONTAL SCROLLING */}
+        <div className="flex flex-wrap items-center gap-2.5 pb-2">
+          {['Tutti', ...categories].map((cat) => {
+            const isSelected = (cat === 'Tutti' && selectedCategory === 'Tutti') || selectedCategory === cat;
+            const label = cat === 'Tutti' ? 'Tutti i Piatti' : cat;
+
+            let activeStyle = 'bg-amber-500 text-white shadow-lg shadow-amber-500/25';
+            if (currentTheme === 'casual' && isSelected) {
+              activeStyle = 'bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 font-black border-2 border-red-300 rounded-2xl scale-105';
+            } else if (currentTheme === 'luxury' && isSelected) {
+              activeStyle = 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 text-zinc-950 font-black tracking-widest uppercase shadow-md shadow-amber-500/20 rounded-xl';
+            }
+
+            return (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isSelected
+                    ? activeStyle
+                    : currentTheme === 'luxury'
+                    ? 'bg-zinc-900/90 text-amber-200/80 border border-amber-500/20 hover:border-amber-500/40 font-serif tracking-wider'
+                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* Special Dishes Carousel */}
+        {/* Special Dishes Grid */}
         {selectedCategory === 'Tutti' && !searchQuery && specialDishes.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
-              <h2 className="text-xl font-extrabold tracking-tight">In Evidenza & Specialità</h2>
+              <h2 className={`text-xl font-extrabold tracking-tight ${currentTheme === 'luxury' ? 'font-serif tracking-widest text-amber-300' : ''}`}>
+                In Evidenza & Specialità
+              </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {specialDishes.map((dish) => {
@@ -551,7 +629,13 @@ export const PublicMenu: React.FC = () => {
                 return (
                   <div
                     key={`spec_${dish.id}`}
-                    className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-xl transition-all group flex flex-col"
+                    className={`rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col ${
+                      currentTheme === 'casual'
+                        ? 'bg-white dark:bg-zinc-900 border-2 border-orange-300 dark:border-orange-900/60'
+                        : currentTheme === 'luxury'
+                        ? 'bg-zinc-900/90 border border-amber-500/30'
+                        : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
+                    }`}
                   >
                     <div 
                       className="relative h-48 overflow-hidden bg-zinc-100 dark:bg-zinc-800 cursor-pointer"
@@ -562,10 +646,16 @@ export const PublicMenu: React.FC = () => {
                         alt={dish.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
-                      <div className="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md">
+                      <div className={`absolute top-3 left-3 text-xs font-bold px-3 py-1 rounded-full shadow-md ${
+                        currentTheme === 'casual' 
+                          ? 'bg-red-500 text-white font-black' 
+                          : currentTheme === 'luxury'
+                          ? 'bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 font-serif font-black'
+                          : 'bg-amber-500 text-white'
+                      }`}>
                         Speciale
                       </div>
-                      <div className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-amber-400 font-black px-3 py-1 rounded-xl text-sm border border-white/10 flex items-center gap-2">
+                      <div className="absolute bottom-3 right-3 bg-black/70 backdrop-blur-md text-amber-400 font-black px-3 py-1 rounded-xl text-sm border border-white/10 flex items-center gap-2">
                         {appliedDiscountPercent > 0 && (
                           <span className="line-through text-xs text-zinc-400">{dish.price.toFixed(2)}</span>
                         )}
@@ -574,7 +664,9 @@ export const PublicMenu: React.FC = () => {
                     </div>
                     <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
                       <div className="cursor-pointer" onClick={() => setActiveDish(dish)}>
-                        <h3 className="text-lg font-bold text-zinc-900 dark:text-white group-hover:text-amber-500 transition-colors">
+                        <h3 className={`text-lg font-bold group-hover:text-amber-500 transition-colors ${
+                          currentTheme === 'luxury' ? 'font-serif tracking-wide text-amber-100' : 'text-zinc-900 dark:text-white'
+                        }`}>
                           {dish.name}
                         </h3>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 line-clamp-2">
@@ -605,7 +697,13 @@ export const PublicMenu: React.FC = () => {
                             ) : (
                               <button
                                 onClick={(e) => handleAddToCart(dish, e)}
-                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                                className={`px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 shadow-md transition-all cursor-pointer ${
+                                  currentTheme === 'casual'
+                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                                    : currentTheme === 'luxury'
+                                    ? 'bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 font-serif'
+                                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                }`}
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Aggiungi</span>
@@ -625,14 +723,18 @@ export const PublicMenu: React.FC = () => {
         {/* Regular Menu Grid */}
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-extrabold tracking-tight">
+            <h2 className={`text-xl font-extrabold tracking-tight ${
+              currentTheme === 'luxury' ? 'font-serif tracking-widest text-amber-200' : ''
+            }`}>
               {selectedCategory === 'Tutti' ? 'Tutto il Menu' : selectedCategory}
             </h2>
             <span className="text-xs text-zinc-400 font-semibold">{filteredDishes.length} piatti disponibili</span>
           </div>
 
           {filteredDishes.length === 0 ? (
-            <div className="py-16 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 p-8 space-y-3">
+            <div className={`py-16 text-center rounded-3xl border p-8 space-y-3 ${
+              currentTheme === 'luxury' ? 'bg-zinc-900 border-amber-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
+            }`}>
               <Utensils className="w-10 h-10 text-zinc-400 mx-auto" />
               <h3 className="text-lg font-bold">Nessun piatto trovato</h3>
               <p className="text-xs text-zinc-500">Prova a modificare i filtri di ricerca o seleziona un'altra categoria.</p>
@@ -645,23 +747,41 @@ export const PublicMenu: React.FC = () => {
                   <div
                     key={dish.id}
                     onClick={() => setActiveDish(dish)}
-                    className="bg-white dark:bg-zinc-900 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-lg transition-all cursor-pointer group flex gap-4 items-center"
+                    className={`rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all cursor-pointer group flex gap-4 items-center ${
+                      currentTheme === 'casual'
+                        ? 'bg-white dark:bg-zinc-900 border-2 border-orange-200 dark:border-orange-950/60 hover:border-orange-400'
+                        : currentTheme === 'luxury'
+                        ? 'bg-zinc-900/90 border border-amber-500/25 hover:border-amber-400/60'
+                        : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
+                    }`}
                   >
                     <img
                       src={dish.image}
                       alt={dish.name}
-                      className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover flex-shrink-0 group-hover:scale-105 transition-transform"
+                      className={`w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover flex-shrink-0 group-hover:scale-105 transition-transform ${
+                        currentTheme === 'luxury' ? 'border border-amber-500/30' : ''
+                      }`}
                     />
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <h3 className="text-base font-bold text-zinc-900 dark:text-white group-hover:text-amber-500 transition-colors truncate">
+                        <h3 className={`text-base font-bold truncate ${
+                          currentTheme === 'luxury'
+                            ? 'font-serif tracking-wide text-amber-100 group-hover:text-amber-300'
+                            : 'text-zinc-900 dark:text-white group-hover:text-amber-500'
+                        }`}>
                           {dish.name}
                         </h3>
                         <div className="text-right flex-shrink-0">
                           {appliedDiscountPercent > 0 && (
                             <span className="block text-xs line-through text-zinc-400">{dish.price.toFixed(2)}</span>
                           )}
-                          <span className="text-base font-black text-amber-600 dark:text-amber-400">
+                          <span className={`text-base font-black ${
+                            currentTheme === 'casual'
+                              ? 'text-red-600 dark:text-red-400'
+                              : currentTheme === 'luxury'
+                              ? 'text-amber-300 font-serif'
+                              : 'text-amber-600 dark:text-amber-400'
+                          }`}>
                             {finalPrice.toFixed(2)} {restaurant.currency}
                           </span>
                         </div>
@@ -706,7 +826,13 @@ export const PublicMenu: React.FC = () => {
                             ) : (
                               <button
                                 onClick={(e) => handleAddToCart(dish, e)}
-                                className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs flex items-center gap-1 shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+                                className={`px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 shadow-md transition-all cursor-pointer ${
+                                  currentTheme === 'casual'
+                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
+                                    : currentTheme === 'luxury'
+                                    ? 'bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 font-serif'
+                                    : 'bg-amber-500 hover:bg-amber-600 text-white'
+                                }`}
                               >
                                 <Plus className="w-3.5 h-3.5" />
                                 <span>Aggiungi</span>
