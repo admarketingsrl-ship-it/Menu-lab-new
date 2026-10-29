@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Bell, Star, Share2, Globe, Clock, MapPin, CheckCircle, Sparkles, Utensils, ChevronRight, Tag, Percent, Receipt, QrCode, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { Search, Bell, Star, Share2, Globe, Clock, MapPin, CheckCircle, Sparkles, Utensils, ChevronRight, Tag, Percent, Receipt, QrCode, Plus, Minus, ShoppingBag, SlidersHorizontal } from 'lucide-react';
 import { Dish, RestaurantInfo, WaiterCall, ReviewItem, CartItem, TableOrder } from '../types';
 import { 
   getStoredDishes, getStoredRestaurant, getStoredCategories, 
@@ -288,12 +288,15 @@ export const PublicMenu: React.FC = () => {
 
 
   const currentTheme = restaurant.menuTheme || 'standard';
+  const themeBgChoice = restaurant.menuThemeBackground || 'white';
 
   // Dynamic Theme Styling Classes
   const getContainerBg = () => {
     if (currentTheme === 'casual') return 'min-h-screen bg-orange-50/50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-36 overflow-x-hidden font-sans';
     if (currentTheme === 'luxury') return 'min-h-screen bg-zinc-950 text-amber-50 pb-36 overflow-x-hidden font-serif';
-    return 'min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 pb-36 overflow-x-hidden';
+    // Standard layout: White or Black
+    if (themeBgChoice === 'black') return 'min-h-screen bg-zinc-950 text-white pb-36 overflow-x-hidden font-sans';
+    return 'min-h-screen bg-zinc-100/80 text-zinc-900 pb-36 overflow-x-hidden font-sans';
   };
 
   return (
@@ -484,27 +487,44 @@ export const PublicMenu: React.FC = () => {
           </div>
         )}
 
-        {/* Coupon Code Input & Search Bar */}
+        {/* Coupon Code Input & Search Bar with Filter Slider */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="relative md:col-span-2">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-zinc-400" />
-            <input
-              type="text"
-              placeholder={lang === 'IT' ? 'Cerca un piatto, ingrediente, pizza...' : 'Search dish, ingredient, pizza...'}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className={`w-full pl-12 pr-4 py-4 rounded-2xl border text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 ${
-                currentTheme === 'luxury' 
-                  ? 'bg-zinc-900/90 border-amber-500/20 text-amber-100 placeholder-zinc-500 font-serif' 
-                  : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-white'
+          <div className="relative md:col-span-2 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input
+                type="text"
+                placeholder={lang === 'IT' ? 'Cerca un piatto, ingrediente, pizza...' : 'Search dish, ingredient, pizza...'}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={`w-full pl-12 pr-4 py-3.5 rounded-2xl border text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-500 ${
+                  currentTheme === 'luxury' 
+                    ? 'bg-zinc-900/90 border-amber-500/20 text-amber-100 placeholder-zinc-500 font-serif' 
+                    : themeBgChoice === 'black'
+                    ? 'bg-zinc-900 border-zinc-800 text-white placeholder-zinc-500'
+                    : 'bg-white border-zinc-200/80 text-zinc-900 placeholder-zinc-400'
+                }`}
+              />
+            </div>
+            <button 
+              onClick={() => setDietaryFilter(dietaryFilter === 'Tutti' ? 'Vegetariano' : 'Tutti')}
+              className={`p-3.5 rounded-2xl border shadow-sm flex items-center justify-center transition-colors cursor-pointer ${
+                currentTheme === 'luxury' || themeBgChoice === 'black'
+                  ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:text-white'
+                  : 'bg-white border-zinc-200 text-zinc-700 hover:text-zinc-900'
               }`}
-            />
+              title="Filtri veloci"
+            >
+              <SlidersHorizontal className="w-5 h-5" />
+            </button>
           </div>
 
           <div className={`flex items-center gap-2 p-2 rounded-2xl border shadow-sm ${
             currentTheme === 'luxury' 
               ? 'bg-zinc-900/90 border-amber-500/20' 
-              : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
+              : themeBgChoice === 'black'
+              ? 'bg-zinc-900 border-zinc-800'
+              : 'bg-white border-zinc-200'
           }`}>
             <div className="pl-2 text-amber-500">
               <Tag className="w-5 h-5" />
@@ -553,11 +573,65 @@ export const PublicMenu: React.FC = () => {
           </div>
         )}
 
-        {/* Dietary Pills - WRAPPED WITHOUT HORIZONTAL SCROLLING */}
-        <div className="flex flex-wrap items-center gap-2 pb-2">
+        {/* Categories Section matching reference layout */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className={`text-xs font-black uppercase tracking-wider ${
+              currentTheme === 'luxury' || themeBgChoice === 'black' ? 'text-zinc-400' : 'text-zinc-500'
+            }`}>
+              Categorie
+            </h3>
+            <button
+              onClick={() => setSelectedCategory('Tutti')}
+              className="text-xs font-bold text-amber-500 hover:underline"
+            >
+              Vedi tutte
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 pb-1">
+            {['Tutti', ...categories].map((cat) => {
+              const isSelected = (cat === 'Tutti' && selectedCategory === 'Tutti') || selectedCategory === cat;
+              const label = cat === 'Tutti' ? 'Tutti' : cat;
+
+              let activeStyle = themeBgChoice === 'black'
+                ? 'bg-white text-zinc-950 font-black shadow-sm'
+                : 'bg-zinc-900 text-white font-black shadow-sm';
+
+              if (currentTheme === 'casual' && isSelected) {
+                activeStyle = 'bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 font-black border-2 border-red-300 rounded-2xl scale-105';
+              } else if (currentTheme === 'luxury' && isSelected) {
+                activeStyle = 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 text-zinc-950 font-black tracking-widest uppercase shadow-md shadow-amber-500/20 rounded-xl';
+              }
+
+              return (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 rounded-2xl text-xs sm:text-sm transition-all cursor-pointer ${
+                    isSelected
+                      ? activeStyle
+                      : currentTheme === 'luxury'
+                      ? 'bg-zinc-900/90 text-amber-200/80 border border-amber-500/20 hover:border-amber-500/40 font-serif tracking-wider'
+                      : themeBgChoice === 'black'
+                      ? 'text-zinc-400 hover:text-white font-semibold'
+                      : 'text-zinc-600 hover:text-zinc-900 font-semibold bg-white/60 border border-zinc-200/60'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Dietary Pills */}
+        <div className="flex flex-wrap items-center gap-2 pb-1">
           {['Tutti', 'Vegetariano', 'Vegano', 'Senza Glutine', 'Senza Lattosio'].map((diet) => {
             const isSelected = dietaryFilter === diet;
-            let activeStyle = 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm';
+            let activeStyle = themeBgChoice === 'black'
+              ? 'bg-white text-zinc-950 font-bold'
+              : 'bg-zinc-900 text-white font-bold';
             
             if (currentTheme === 'casual' && isSelected) {
               activeStyle = 'bg-gradient-to-r from-red-500 to-orange-500 text-white font-extrabold shadow-md border border-red-400';
@@ -569,46 +643,17 @@ export const PublicMenu: React.FC = () => {
               <button
                 key={diet}
                 onClick={() => setDietaryFilter(diet)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isSelected
                     ? activeStyle
                     : currentTheme === 'luxury'
-                    ? 'bg-zinc-900/80 text-amber-200/80 border border-amber-500/20 hover:border-amber-500/40'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 hover:border-zinc-300'
+                    ? 'bg-zinc-900/80 text-amber-200/80 border border-amber-500/20'
+                    : themeBgChoice === 'black'
+                    ? 'bg-zinc-900 text-zinc-400 border border-zinc-800'
+                    : 'bg-white/80 text-zinc-600 border border-zinc-200/60'
                 }`}
               >
                 {diet}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Categories Tab Bar - WRAPPED WITHOUT HORIZONTAL SCROLLING */}
-        <div className="flex flex-wrap items-center gap-2.5 pb-2">
-          {['Tutti', ...categories].map((cat) => {
-            const isSelected = (cat === 'Tutti' && selectedCategory === 'Tutti') || selectedCategory === cat;
-            const label = cat === 'Tutti' ? 'Tutti i Piatti' : cat;
-
-            let activeStyle = 'bg-amber-500 text-white shadow-lg shadow-amber-500/25';
-            if (currentTheme === 'casual' && isSelected) {
-              activeStyle = 'bg-gradient-to-r from-red-500 via-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 font-black border-2 border-red-300 rounded-2xl scale-105';
-            } else if (currentTheme === 'luxury' && isSelected) {
-              activeStyle = 'bg-gradient-to-r from-amber-200 via-amber-400 to-amber-500 text-zinc-950 font-black tracking-widest uppercase shadow-md shadow-amber-500/20 rounded-xl';
-            }
-
-            return (
-              <button
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                  isSelected
-                    ? activeStyle
-                    : currentTheme === 'luxury'
-                    ? 'bg-zinc-900/90 text-amber-200/80 border border-amber-500/20 hover:border-amber-500/40 font-serif tracking-wider'
-                    : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-800'
-                }`}
-              >
-                {label}
               </button>
             );
           })}
@@ -619,7 +664,13 @@ export const PublicMenu: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
-              <h2 className={`text-xl font-extrabold tracking-tight ${currentTheme === 'luxury' ? 'font-serif tracking-widest text-amber-300' : ''}`}>
+              <h2 className={`text-xl font-extrabold tracking-tight ${
+                currentTheme === 'luxury' 
+                  ? 'font-serif tracking-widest text-amber-300' 
+                  : themeBgChoice === 'black' 
+                  ? 'text-white' 
+                  : 'text-zinc-900'
+              }`}>
                 In Evidenza & Specialità
               </h2>
             </div>
@@ -634,7 +685,9 @@ export const PublicMenu: React.FC = () => {
                         ? 'bg-white dark:bg-zinc-900 border-2 border-orange-300 dark:border-orange-900/60'
                         : currentTheme === 'luxury'
                         ? 'bg-zinc-900/90 border border-amber-500/30'
-                        : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
+                        : themeBgChoice === 'black'
+                        ? 'bg-zinc-900 border border-zinc-800'
+                        : 'bg-white border border-zinc-200/80'
                     }`}
                   >
                     <div 
@@ -665,7 +718,11 @@ export const PublicMenu: React.FC = () => {
                     <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
                       <div className="cursor-pointer" onClick={() => setActiveDish(dish)}>
                         <h3 className={`text-lg font-bold group-hover:text-amber-500 transition-colors ${
-                          currentTheme === 'luxury' ? 'font-serif tracking-wide text-amber-100' : 'text-zinc-900 dark:text-white'
+                          currentTheme === 'luxury' 
+                            ? 'font-serif tracking-wide text-amber-100' 
+                            : themeBgChoice === 'black' 
+                            ? 'text-white' 
+                            : 'text-zinc-900'
                         }`}>
                           {dish.name}
                         </h3>
@@ -720,20 +777,28 @@ export const PublicMenu: React.FC = () => {
           </div>
         )}
 
-        {/* Regular Menu Grid */}
-        <div className="space-y-6">
+        {/* Regular Menu Grid - Matching Reference Layout */}
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className={`text-xl font-extrabold tracking-tight ${
-              currentTheme === 'luxury' ? 'font-serif tracking-widest text-amber-200' : ''
+            <h2 className={`text-xl font-black tracking-tight ${
+              currentTheme === 'luxury' 
+                ? 'font-serif tracking-widest text-amber-200' 
+                : themeBgChoice === 'black' 
+                ? 'text-white' 
+                : 'text-zinc-900'
             }`}>
               {selectedCategory === 'Tutti' ? 'Tutto il Menu' : selectedCategory}
             </h2>
-            <span className="text-xs text-zinc-400 font-semibold">{filteredDishes.length} piatti disponibili</span>
+            <span className="text-xs text-zinc-400 font-semibold">{filteredDishes.length} piatti</span>
           </div>
 
           {filteredDishes.length === 0 ? (
             <div className={`py-16 text-center rounded-3xl border p-8 space-y-3 ${
-              currentTheme === 'luxury' ? 'bg-zinc-900 border-amber-500/20' : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800'
+              currentTheme === 'luxury' 
+                ? 'bg-zinc-900 border-amber-500/20' 
+                : themeBgChoice === 'black'
+                ? 'bg-zinc-900 border-zinc-800'
+                : 'bg-white border-zinc-200'
             }`}>
               <Utensils className="w-10 h-10 text-zinc-400 mx-auto" />
               <h3 className="text-lg font-bold">Nessun piatto trovato</h3>
@@ -747,100 +812,118 @@ export const PublicMenu: React.FC = () => {
                   <div
                     key={dish.id}
                     onClick={() => setActiveDish(dish)}
-                    className={`rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all cursor-pointer group flex gap-4 items-center ${
+                    className={`rounded-3xl p-4 transition-all cursor-pointer group flex gap-4 items-center relative ${
                       currentTheme === 'casual'
-                        ? 'bg-white dark:bg-zinc-900 border-2 border-orange-200 dark:border-orange-950/60 hover:border-orange-400'
+                        ? 'bg-white dark:bg-zinc-900 border-2 border-orange-200 dark:border-orange-950/60 hover:border-orange-400 shadow-sm'
                         : currentTheme === 'luxury'
-                        ? 'bg-zinc-900/90 border border-amber-500/25 hover:border-amber-400/60'
-                        : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800'
+                        ? 'bg-zinc-900/90 border border-amber-500/25 hover:border-amber-400/60 shadow-xl'
+                        : themeBgChoice === 'black'
+                        ? 'bg-zinc-900 border border-zinc-800/80 text-white shadow-sm hover:border-zinc-700'
+                        : 'bg-white border border-zinc-200/60 text-zinc-900 shadow-sm hover:shadow-md'
                     }`}
                   >
                     <img
                       src={dish.image}
                       alt={dish.name}
-                      className={`w-24 h-24 sm:w-28 sm:h-28 rounded-xl object-cover flex-shrink-0 group-hover:scale-105 transition-transform ${
+                      className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover flex-shrink-0 group-hover:scale-105 transition-transform ${
                         currentTheme === 'luxury' ? 'border border-amber-500/30' : ''
                       }`}
                     />
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <h3 className={`text-base font-bold truncate ${
+                    
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2 pr-7">
+                        <h3 className={`text-sm sm:text-base font-extrabold line-clamp-2 leading-tight ${
                           currentTheme === 'luxury'
                             ? 'font-serif tracking-wide text-amber-100 group-hover:text-amber-300'
-                            : 'text-zinc-900 dark:text-white group-hover:text-amber-500'
+                            : themeBgChoice === 'black' || currentTheme === 'casual'
+                            ? 'text-white group-hover:text-amber-400'
+                            : 'text-zinc-900 group-hover:text-amber-600'
                         }`}>
                           {dish.name}
                         </h3>
-                        <div className="text-right flex-shrink-0">
+                      </div>
+
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-snug">
+                        {dish.description}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-2">
+                        <div className="flex items-baseline gap-1.5">
                           {appliedDiscountPercent > 0 && (
-                            <span className="block text-xs line-through text-zinc-400">{dish.price.toFixed(2)}</span>
+                            <span className="text-xs line-through text-zinc-400">{dish.price.toFixed(2)}</span>
                           )}
-                          <span className={`text-base font-black ${
+                          <span className={`text-sm sm:text-base font-black ${
                             currentTheme === 'casual'
                               ? 'text-red-600 dark:text-red-400'
                               : currentTheme === 'luxury'
                               ? 'text-amber-300 font-serif'
-                              : 'text-amber-600 dark:text-amber-400'
+                              : themeBgChoice === 'black'
+                              ? 'text-white'
+                              : 'text-zinc-900'
                           }`}>
                             {finalPrice.toFixed(2)} {restaurant.currency}
                           </span>
                         </div>
-                      </div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
-                        {dish.description}
-                      </p>
 
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {!dish.isAvailable && (
-                            <span className="px-2 py-0.5 rounded-md bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400 text-[10px] font-bold">
-                              Esaurito
-                            </span>
-                          )}
+                        <div className="flex flex-wrap items-center gap-1">
                           {dish.dietary?.map((diet, idx) => (
-                            <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[10px] font-medium">
+                            <span key={idx} className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 text-[9px] font-bold">
                               {diet}
                             </span>
                           ))}
                         </div>
-
-                        {/* Add to Cart button when Table Ordering is enabled */}
-                        {restaurant.tableOrderingEnabled && dish.isAvailable && (
-                          <div onClick={(e) => e.stopPropagation()}>
-                            {getItemCartQty(dish.id) > 0 ? (
-                              <div className="flex items-center gap-2 bg-amber-500 text-white rounded-xl px-2.5 py-1 shadow-md font-bold text-xs">
-                                <button 
-                                  onClick={(e) => handleUpdateCartQuantity(dish.id, -1, e)} 
-                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="px-1 text-xs font-black">{getItemCartQty(dish.id)}</span>
-                                <button 
-                                  onClick={(e) => handleUpdateCartQuantity(dish.id, 1, e)} 
-                                  className="p-1 hover:bg-amber-600 rounded-lg transition-colors cursor-pointer"
-                                >
-                                  <Plus className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={(e) => handleAddToCart(dish, e)}
-                                className={`px-3 py-1.5 rounded-xl font-black text-xs flex items-center gap-1 shadow-md transition-all cursor-pointer ${
-                                  currentTheme === 'casual'
-                                    ? 'bg-gradient-to-r from-red-500 to-orange-500 text-white'
-                                    : currentTheme === 'luxury'
-                                    ? 'bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 font-serif'
-                                    : 'bg-amber-500 hover:bg-amber-600 text-white'
-                                }`}
-                              >
-                                <Plus className="w-3.5 h-3.5" />
-                                <span>Aggiungi</span>
-                              </button>
-                            )}
-                          </div>
-                        )}
                       </div>
+                    </div>
+
+                    {/* Top Right Action Button (+) matching screenshot reference */}
+                    <div className="absolute top-3.5 right-3.5" onClick={(e) => e.stopPropagation()}>
+                      {restaurant.tableOrderingEnabled && dish.isAvailable ? (
+                        getItemCartQty(dish.id) > 0 ? (
+                          <div className="flex items-center gap-1.5 bg-amber-500 text-white rounded-xl px-2 py-1 shadow-md font-bold text-xs">
+                            <button 
+                              onClick={(e) => handleUpdateCartQuantity(dish.id, -1, e)} 
+                              className="p-0.5 hover:bg-amber-600 rounded cursor-pointer"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="px-1 text-xs font-black">{getItemCartQty(dish.id)}</span>
+                            <button 
+                              onClick={(e) => handleUpdateCartQuantity(dish.id, 1, e)} 
+                              className="p-0.5 hover:bg-amber-600 rounded cursor-pointer"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={(e) => handleAddToCart(dish, e)}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all cursor-pointer ${
+                              currentTheme === 'casual'
+                                ? 'bg-red-500 text-white hover:bg-red-600'
+                                : currentTheme === 'luxury'
+                                ? 'bg-gradient-to-r from-amber-300 to-amber-500 text-zinc-950 font-bold'
+                                : themeBgChoice === 'black'
+                                ? 'bg-zinc-800 text-white hover:bg-zinc-700'
+                                : 'bg-zinc-100 text-zinc-800 hover:bg-zinc-200'
+                            }`}
+                            title="Aggiungi al carrello"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        )
+                      ) : (
+                        <button
+                          onClick={() => setActiveDish(dish)}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition-all cursor-pointer ${
+                            themeBgChoice === 'black' || currentTheme === 'luxury'
+                              ? 'bg-zinc-800 text-zinc-300 hover:text-white'
+                              : 'bg-zinc-100 text-zinc-600 hover:text-zinc-900'
+                          }`}
+                          title="Dettagli piatto"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );

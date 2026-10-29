@@ -62,6 +62,7 @@ export interface RestaurantInfo {
   tables?: string[]; // e.g. ['Tavolo 1', 'Tavolo 2', ...]
   tableOrderingEnabled?: boolean; // Feature flag for ordering directly from table QR
   menuTheme?: 'standard' | 'casual' | 'luxury'; // Visual theme for customer menu layout
+  menuThemeBackground?: 'white' | 'black'; // Background color choice for standard layout
 }
 
 export interface WaiterCall {

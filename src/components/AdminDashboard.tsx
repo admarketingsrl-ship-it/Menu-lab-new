@@ -1923,19 +1923,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigateToSupe
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-2">
+              <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 space-y-3">
                 <label className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider block">
-                  🎨 Layout Grafico del Menu Digitale per i Clienti
+                  🎨 Layout Grafico & Colore Sfondo del Menu
                 </label>
-                <select
-                  value={restaurant.menuTheme || 'standard'}
-                  onChange={(e) => setRestaurant({ ...restaurant, menuTheme: e.target.value as any })}
-                  className="w-full px-4 py-3 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-sm font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="standard">Standard (Design Pulito, Moderno e Neutro)</option>
-                  <option value="casual">Casual / Pizzeria & Paninoteca (Commerciale, Pop e Colorato)</option>
-                  <option value="luxury">Ristorante di Lusso (Minimalista, Dark Elegante e Dettagli Oro)</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Layout Menu</label>
+                    <select
+                      value={restaurant.menuTheme || 'standard'}
+                      onChange={(e) => setRestaurant({ ...restaurant, menuTheme: e.target.value as any })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="standard">Standard (Design Pulito con Riquadri)</option>
+                      <option value="casual">Casual / Pizzeria & Paninoteca (Pop & Colorato)</option>
+                      <option value="luxury">Ristorante di Lusso (Dark & Dettagli Oro)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-600 dark:text-zinc-400">Sfondo (Layout Standard)</label>
+                    <select
+                      value={restaurant.menuThemeBackground || 'white'}
+                      onChange={(e) => setRestaurant({ ...restaurant, menuThemeBackground: e.target.value as any })}
+                      className="w-full px-3 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-bold text-zinc-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="white">⚪ White (Sfondo Chiaro / Bianco)</option>
+                      <option value="black">🌑 Black (Sfondo Scuro / Nero)</option>
+                    </select>
+                  </div>
+                </div>
                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                   Scegli lo stile grafico più adatto al tuo locale. I cambi sono visibili immediatamente sul menu dei clienti in tempo reale.
                 </p>

@@ -175,6 +175,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     const address = (formData.get('address') as string).trim() || 'Via Roma 1, Centro';
     const phone = (formData.get('phone') as string).trim() || '+39 081 000 0000';
     const menuTheme = (formData.get('menuTheme') as 'standard' | 'casual' | 'luxury') || 'standard';
+    const menuThemeBackground = (formData.get('menuThemeBackground') as 'white' | 'black') || 'white';
 
     const newRest: RestaurantInfo = {
       id,
@@ -194,6 +195,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
       tripAdvisorUrl: '',
       tables: ['Tavolo 1'],
       menuTheme,
+      menuThemeBackground,
       subscription: {
         planName,
         monthlyFee,
@@ -238,6 +240,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
     const endDate = formData.get('endDate') as string;
     const status = formData.get('status') as 'Attivo' | 'In Scadenza' | 'Scaduto';
     const menuTheme = (formData.get('menuTheme') as 'standard' | 'casual' | 'luxury') || 'standard';
+    const menuThemeBackground = (formData.get('menuThemeBackground') as 'white' | 'black') || 'white';
 
     const updated = restaurants.map(r => {
       if (r.id === editingClient.id) {
@@ -246,6 +249,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
           adminEmail,
           adminPassword,
           menuTheme,
+          menuThemeBackground,
           subscription: {
             planName,
             monthlyFee,
@@ -838,18 +842,35 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
               </div>
 
               {/* Layout Grafico Menu per il Cliente */}
-              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
-                <p className="text-xs font-black uppercase text-amber-400 tracking-wider">Layout Grafico del Menu Digitale</p>
-                <select
-                  name="menuTheme"
-                  defaultValue="standard"
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                >
-                  <option value="standard">Standard (Design Pulito, Moderno & Neutro)</option>
-                  <option value="casual">Casual / Pizzeria & Paninoteca (Commerciale, Pop & Colorato)</option>
-                  <option value="luxury">Ristorante di Lusso (Minimalista, Dark & Dettagli Oro)</option>
-                </select>
-                <p className="text-[11px] text-zinc-500">I tre layout adattano i colori, i caratteri e le schede dei piatti allo stile del locale.</p>
+              <div className="p-4 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+                <p className="text-xs font-black uppercase text-amber-400 tracking-wider">Layout Grafico & Colore Sfondo</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-400">Layout Grafico</label>
+                    <select
+                      name="menuTheme"
+                      defaultValue="standard"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="standard">Standard (Design Pulito con Riquadri)</option>
+                      <option value="casual">Casual / Pizzeria & Paninoteca (Pop & Colorato)</option>
+                      <option value="luxury">Ristorante di Lusso (Dark & Dettagli Oro)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-400">Sfondo Layout (Standard)</label>
+                    <select
+                      name="menuThemeBackground"
+                      defaultValue="white"
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="white">⚪ White (Sfondo Chiaro / Bianco)</option>
+                      <option value="black">🌑 Black (Sfondo Scuro / Nero)</option>
+                    </select>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-500">I testi e le schede dei piatti si adattano automaticamente al colore dello sfondo scelto.</p>
               </div>
 
               {/* Abbonamento Mensile */}
@@ -995,17 +1016,31 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onBack
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-zinc-400">Layout Menu Digitale Cliente</label>
-                  <select
-                    name="menuTheme"
-                    defaultValue={editingClient.menuTheme || 'standard'}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="standard">Standard (Design Pulito, Moderno & Neutro)</option>
-                    <option value="casual">Casual / Pizzeria & Paninoteca (Commerciale, Pop & Colorato)</option>
-                    <option value="luxury">Ristorante di Lusso (Minimalista, Dark & Dettagli Oro)</option>
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-400">Layout Menu Digitale</label>
+                    <select
+                      name="menuTheme"
+                      defaultValue={editingClient.menuTheme || 'standard'}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="standard">Standard (Design Pulito con Riquadri)</option>
+                      <option value="casual">Casual / Pizzeria & Paninoteca (Pop & Colorato)</option>
+                      <option value="luxury">Ristorante di Lusso (Dark & Dettagli Oro)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-zinc-400">Sfondo Menu (Standard)</label>
+                    <select
+                      name="menuThemeBackground"
+                      defaultValue={editingClient.menuThemeBackground || 'white'}
+                      className="w-full px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    >
+                      <option value="white">⚪ White (Sfondo Chiaro / Bianco)</option>
+                      <option value="black">`🌑` Black (Sfondo Scuro / Nero)</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-1">
